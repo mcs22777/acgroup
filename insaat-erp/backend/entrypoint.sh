@@ -26,10 +26,20 @@ except Exception as e:
 
 echo "📦 Migration oluşturuluyor/çalıştırılıyor..."
 
-# Eski/bozuk revision varsa temizle — alembic_version tablosunu sıfırla
-# Bu, versions klasörü boş olduğunda "Can't locate revision" hatasını önler
-if ! alembic current 2>&1 | grep -q "head\|(head)"; then
-    echo "  → Eski revision tespit edildi, alembic_version sıfırlanıyor..."
+# Önce users tablosu var mı kontrol et — yoksa migration'ı sıfırdan çalıştır
+TABLES_EXIST=$(python -c "
+from sqlalchemy import create_engine, text, inspect
+import os
+url = os.environ.get('DATABASE_URL', '').replace('+asyncpg', '')
+engine = create_engine(url)
+inspector = inspect(engine)
+tables = inspector.get_table_names()
+engine.dispose()
+print('yes' if 'users' in tables else 'no')
+" 2>/dev/null)
+
+if [ "$TABLES_EXIST" = "no" ]; then
+    echo "  → Tablolar bulunamadı, alembic_version sıfırlanıyor..."
     python -c "
 from sqlalchemy import create_engine, text
 import os
@@ -44,17 +54,10 @@ if url:
 " 2>/dev/null || echo "  ⚠️ alembic_version sıfırlanamadı"
 fi
 
-# İlk migration yoksa oluştur
-if [ ! "$(ls -A alembic/versions/*.py 2>/dev/null)" ]; then
-    echo "  → İlk migration oluşturuluyor..."
-    alembic revision --autogenerate -m "initial_tables" || echo "  ⚠️ Migration oluşturulamadı"
-fi
-
 # Migration'ları çalıştır
 echo "  → Migration'lar uygulanıyor..."
-alembic upgrade head
-if [ $? -ne 0 ]; then
-    echo "  ⚠️ Migration başarısız, tabloları doğrudan oluşturmayı deniyoruz..."
+if ! alembic upgrade head; then
+    echo "  ⚠️ Alembic migration başarısız, tabloları doğrudan oluşturuyoruz..."
     python -c "
 import asyncio
 from app.db.base import Base
@@ -69,6 +72,24 @@ async def create_tables():
 asyncio.run(create_tables())
 "
 fi
+
+# Tabloların gerçekten oluştuğunu doğrula
+echo "  → Tablo doğrulaması yapılıyor..."
+python -c "
+from sqlalchemy import create_engine, inspect
+import os, sys
+url = os.environ.get('DATABASE_URL', '').replace('+asyncpg', '')
+engine = create_engine(url)
+inspector = inspect(engine)
+tables = inspector.get_table_names()
+engine.dispose()
+required = ['users', 'projects', 'blocks', 'units', 'customers', 'sales', 'installments', 'payments']
+missing = [t for t in required if t not in tables]
+if missing:
+    print(f'  ❌ Eksik tablolar: {missing}')
+    sys.exit(1)
+print(f'  ✅ Tüm tablolar mevcut ({len(tables)} tablo)')
+"
 
 echo "🌱 Seed verileri kontrol ediliyor..."
 python /app/seed.py
