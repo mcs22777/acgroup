@@ -1,5 +1,7 @@
 """Auth endpoint'leri — giriş, kayıt, token yenileme."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 
 from sqlalchemy import select
@@ -22,12 +24,20 @@ from app.schemas.auth import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest, db: DB):
-    result = await db.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
+    try:
+        result = await db.execute(select(User).where(User.email == body.email))
+        user = result.scalar_one_or_none()
+    except Exception as e:
+        logger.error(f"Login sırasında veritabanı hatası: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Veritabanı hatası: {str(e)}",
+        )
 
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(

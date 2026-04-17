@@ -1,15 +1,20 @@
 """AC Grup Proje ERP — FastAPI Ana Uygulama."""
 
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from app.core.config import get_settings
 from app.api.v1 import api_router
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+# Logging ayarı
+logging.basicConfig(level=logging.DEBUG if settings.DEBUG else logging.INFO)
 
 
 @asynccontextmanager
@@ -17,6 +22,15 @@ async def lifespan(app: FastAPI):
     """Uygulama başlangıç ve kapanış işlemleri."""
     # Startup
     print(f"🏗️  {settings.APP_NAME} v{settings.APP_VERSION} başlatılıyor...")
+    # DB bağlantı kontrolü
+    try:
+        from app.db.session import engine
+        async with engine.connect() as conn:
+            from sqlalchemy import text
+            await conn.execute(text("SELECT 1"))
+        print("✅ Veritabanı bağlantısı başarılı")
+    except Exception as e:
+        print(f"❌ Veritabanı bağlantı hatası: {e}")
     yield
     # Shutdown
     print("Uygulama kapatılıyor...")
@@ -39,6 +53,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global exception handler — 500 hatalarının detayını logla
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"İşlenmeyen hata [{request.method} {request.url.path}]: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Sunucu hatası: {str(exc)}"},
+    )
 
 # API Routes
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

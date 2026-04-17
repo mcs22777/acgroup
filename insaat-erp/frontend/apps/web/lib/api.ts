@@ -69,8 +69,10 @@ export async function ensureAuth(): Promise<boolean> {
         return true
       }
       return false
-    } catch {
-      console.warn('Otomatik login başarısız — backend çalışıyor mu?')
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'Bilinmeyen hata'
+      console.warn(`Otomatik login başarısız — ${detail}`)
+      console.warn('Backend çalışıyor mu? API_BASE_URL:', API_BASE_URL)
       return false
     } finally {
       authPromise = null
