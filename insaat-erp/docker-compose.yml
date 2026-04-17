@@ -12,7 +12,7 @@ services:
       - MINIO_SECRET_KEY=minioadmin
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
       - DEBUG=true
-      - CORS_ORIGINS=["http://localhost:3000","http://18.185.82.118:3000","http://localhost:8081"]
+      - CORS_ORIGINS=["http://localhost:3000","http://18.156.176.19:3000","http://18.156.176.19","http://localhost:8081","http://18.156.176.19:8081"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -28,7 +28,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://18.185.82.118:8000/api/v1
+      - NEXT_PUBLIC_API_URL=/api/v1
       - HOSTNAME=0.0.0.0
     volumes:
       - ./frontend:/app
