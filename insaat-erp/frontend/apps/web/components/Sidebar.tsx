@@ -30,19 +30,19 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       <div className="p-4 border-b border-primary-700 flex items-center justify-between">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent-500 rounded-lg flex items-center justify-center font-bold text-primary-900 text-lg">
-              AC
-            </div>
-            <div>
-              <h1 className="font-bold text-sm leading-tight">AC GRUP</h1>
-              <p className="text-xs text-primary-300">PROJE A.Ş.</p>
-            </div>
+            <img
+              src="/logo.png"
+              alt="AC Grup Proje"
+              className="h-9 w-auto object-contain"
+            />
           </div>
         )}
         {collapsed && (
-          <div className="w-10 h-10 bg-accent-500 rounded-lg flex items-center justify-center font-bold text-primary-900 text-lg mx-auto">
-            AC
-          </div>
+          <img
+            src="/logo.png"
+            alt="AC Grup Proje"
+            className="h-8 w-auto object-contain mx-auto"
+          />
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -61,11 +61,10 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                isActive
+              className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${isActive
                   ? 'bg-primary-600 text-white border-r-4 border-accent-500'
                   : 'text-primary-200 hover:bg-primary-700 hover:text-white'
-              }`}
+                }`}
             >
               <Icon className={`w-5 h-5 flex-shrink-0 ${collapsed ? 'mx-auto' : ''}`} />
               {!collapsed && <span>{item.label}</span>}

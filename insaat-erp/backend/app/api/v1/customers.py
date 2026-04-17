@@ -81,6 +81,22 @@ async def update_customer(customer_id: UUID, body: CustomerUpdate, db: DB, curre
 
 # ── Fırsatlar ──
 
+@router.get("/opportunities/all", response_model=list[OpportunityResponse])
+async def list_all_opportunities(db: DB, current_user: CurrentUser):
+    result = await db.execute(
+        select(Opportunity).order_by(Opportunity.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/activities/all", response_model=list[ActivityResponse])
+async def list_all_activities(db: DB, current_user: CurrentUser):
+    result = await db.execute(
+        select(Activity).order_by(Activity.activity_date.desc()).limit(50)
+    )
+    return result.scalars().all()
+
+
 @router.get("/{customer_id}/opportunities", response_model=list[OpportunityResponse])
 async def list_customer_opportunities(customer_id: UUID, db: DB, current_user: CurrentUser):
     result = await db.execute(

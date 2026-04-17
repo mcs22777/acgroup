@@ -1,47 +1,19 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   Building2, Home, Users, TrendingUp, AlertTriangle,
-  Clock, Wallet, ArrowUpRight, ArrowDownRight, DollarSign,
+  Clock, Wallet, ArrowUpRight, ArrowDownRight, DollarSign, Loader2,
 } from 'lucide-react'
+import api, { ensureAuth, formatCurrency } from '@/lib/api'
 
-// ── Mock Data (API bağlandığında kaldırılacak) ──
-const stockData = {
-  total: 120, available: 45, reserved: 12, negotiation: 8, sold: 55,
-}
-
-const projectStocks = [
-  { name: 'Park Evler', code: 'PARK-EVLER', total: 40, available: 15, reserved: 5, negotiation: 3, sold: 17 },
-  { name: 'Deniz Konakları', code: 'DENIZ-KONAK', total: 60, available: 22, reserved: 5, negotiation: 3, sold: 30 },
-  { name: 'Yeşil Vadi', code: 'YESIL-VADI', total: 20, available: 8, reserved: 2, negotiation: 2, sold: 8 },
-]
-
-const financialData = {
-  expectedThisMonth: 1850000,
-  collectedThisMonth: 1220000,
-  overdueTotal: 380000,
-  totalReceivable: 12500000,
-  expensesThisMonth: 1450000,
-}
-
-const crmData = {
-  totalCustomers: 156, openOpportunities: 28, newThisWeek: 5, wonThisMonth: 3,
-}
-
-const overduePayments = [
-  { customer: 'Ahmet Kaya', unit: 'A-3-1 (3+1)', installment: 4, dueDate: '2026-03-15', amount: 45000 },
-  { customer: 'Fatma Demir', unit: 'B-5-2 (2+1)', installment: 6, dueDate: '2026-03-01', amount: 32000 },
-  { customer: 'Ali Şahin', unit: 'A-7-1 (3+1)', installment: 2, dueDate: '2026-02-28', amount: 55000 },
-]
-
-const upcomingExpenses = [
-  { supplier: 'ABC İnşaat Malz.', description: 'Çimento alımı', amount: 450000, dueDate: '2026-04-15' },
-  { supplier: 'XYZ Demir Çelik', description: 'Demir donatı', amount: 680000, dueDate: '2026-04-20' },
-  { supplier: 'Doğan Taşeronluk', description: 'Nisan hakedişi', amount: 320000, dueDate: '2026-04-30' },
-]
-
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0 }).format(n)
+interface DashboardData {
+  stock: { total_units: number; available: number; reserved: number; negotiation: number; sold: number }
+  project_stocks: { project_id: string; project_name: string; project_code: string; total_units: number; available: number; reserved: number; negotiation: number; sold: number }[]
+  financial: { expected_this_month: number; collected_this_month: number; overdue_total: number; total_receivable: number; expenses_this_month: number }
+  crm: { total_customers: number; open_opportunities: number; new_this_week: number; won_this_month: number }
+  overdue_payments: { sale_id: string; customer_name: string; unit_info: string; installment_no: number; due_date: string; amount: number; paid_amount: number; overdue_amount: number }[]
+  upcoming_expenses: { expense_id: string; supplier_name: string | null; description: string; amount: number; due_date: string; status: string }[]
 }
 
 function StatCard({ title, value, subtitle, icon: Icon, color, trend }: {
@@ -70,17 +42,18 @@ function StatCard({ title, value, subtitle, icon: Icon, color, trend }: {
   )
 }
 
-function StockBar({ project }: { project: typeof projectStocks[0] }) {
-  const soldPct = (project.sold / project.total) * 100
-  const resPct = (project.reserved / project.total) * 100
-  const negPct = (project.negotiation / project.total) * 100
-  const avPct = (project.available / project.total) * 100
+function StockBar({ project }: { project: DashboardData['project_stocks'][0] }) {
+  const t = project.total_units || 1
+  const soldPct = (project.sold / t) * 100
+  const resPct = (project.reserved / t) * 100
+  const negPct = (project.negotiation / t) * 100
+  const avPct = (project.available / t) * 100
 
   return (
     <div className="mb-4 last:mb-0">
       <div className="flex justify-between items-center mb-1.5">
-        <span className="text-sm font-medium text-gray-700">{project.name}</span>
-        <span className="text-xs text-gray-400">{project.sold}/{project.total} satılmış</span>
+        <span className="text-sm font-medium text-gray-700">{project.project_name}</span>
+        <span className="text-xs text-gray-400">{project.sold}/{project.total_units} satılmış</span>
       </div>
       <div className="h-3 bg-gray-100 rounded-full overflow-hidden flex">
         <div className="bg-red-400 transition-all" style={{ width: `${soldPct}%` }} title={`Satılmış: ${project.sold}`} />
@@ -93,47 +66,83 @@ function StockBar({ project }: { project: typeof projectStocks[0] }) {
 }
 
 export default function Dashboard() {
-  const collectionRate = Math.round((financialData.collectedThisMonth / financialData.expectedThisMonth) * 100)
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      await ensureAuth()
+      try {
+        const res = await api.get('/dashboard/summary')
+        setData(res.data)
+      } catch (err) {
+        console.error('Dashboard yüklenemedi:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-500">
+        <p>Veriler yüklenemedi. Backend bağlantısını kontrol edin.</p>
+      </div>
+    )
+  }
+
+  const collectionRate = data.financial.expected_this_month > 0
+    ? Math.round((Number(data.financial.collected_this_month) / Number(data.financial.expected_this_month)) * 100)
+    : 0
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Nisan 2026 — Anlık genel bakış</p>
+        <p className="text-sm text-gray-500 mt-1">{new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })} — Anlık genel bakış</p>
       </div>
 
       {/* Üst Kartlar */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           title="Toplam Daire"
-          value={stockData.total}
-          subtitle={`${stockData.available} müsait`}
+          value={data.stock.total_units}
+          subtitle={`${data.stock.available} müsait`}
           icon={Home}
           color="bg-primary-500"
         />
         <StatCard
           title="Bu Ay Beklenen Tahsilat"
-          value={formatCurrency(financialData.expectedThisMonth)}
+          value={formatCurrency(Number(data.financial.expected_this_month))}
           subtitle={`${collectionRate}% tahsil edildi`}
           icon={TrendingUp}
           color="bg-green-500"
-          trend={{ value: `${formatCurrency(financialData.collectedThisMonth)} tahsil edildi`, up: true }}
+          trend={{ value: `${formatCurrency(Number(data.financial.collected_this_month))} tahsil edildi`, up: true }}
         />
         <StatCard
           title="Geciken Ödemeler"
-          value={formatCurrency(financialData.overdueTotal)}
-          subtitle={`${overduePayments.length} taksit gecikmiş`}
+          value={formatCurrency(Number(data.financial.overdue_total))}
+          subtitle={`${data.overdue_payments.length} taksit gecikmiş`}
           icon={AlertTriangle}
           color="bg-red-500"
         />
         <StatCard
           title="Açık Fırsatlar"
-          value={crmData.openOpportunities}
-          subtitle={`${crmData.newThisWeek} yeni bu hafta`}
+          value={data.crm.open_opportunities}
+          subtitle={`${data.crm.new_this_week} yeni bu hafta`}
           icon={Users}
           color="bg-blue-500"
-          trend={{ value: `${crmData.wonThisMonth} satışa dönüştü`, up: true }}
+          trend={{ value: `${data.crm.won_this_month} satışa dönüştü`, up: true }}
         />
       </div>
 
@@ -153,7 +162,11 @@ export default function Dashboard() {
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-400" /> Müsait</span>
             </div>
           </div>
-          {projectStocks.map(p => <StockBar key={p.code} project={p} />)}
+          {data.project_stocks.length === 0 ? (
+            <p className="text-sm text-gray-400">Henüz proje verisi yok.</p>
+          ) : (
+            data.project_stocks.map(p => <StockBar key={p.project_code} project={p} />)
+          )}
         </div>
 
         {/* Finansal Özet */}
@@ -165,23 +178,23 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="flex justify-between items-center py-2 border-b border-gray-50">
               <span className="text-sm text-gray-500">Toplam Alacak</span>
-              <span className="font-semibold text-gray-900">{formatCurrency(financialData.totalReceivable)}</span>
+              <span className="font-semibold text-gray-900">{formatCurrency(Number(data.financial.total_receivable))}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-gray-50">
               <span className="text-sm text-gray-500">Bu Ay Beklenen</span>
-              <span className="font-semibold text-green-600">{formatCurrency(financialData.expectedThisMonth)}</span>
+              <span className="font-semibold text-green-600">{formatCurrency(Number(data.financial.expected_this_month))}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-gray-50">
               <span className="text-sm text-gray-500">Tahsil Edilen</span>
-              <span className="font-semibold text-green-600">{formatCurrency(financialData.collectedThisMonth)}</span>
+              <span className="font-semibold text-green-600">{formatCurrency(Number(data.financial.collected_this_month))}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-gray-50">
               <span className="text-sm text-gray-500">Geciken</span>
-              <span className="font-semibold text-red-500">{formatCurrency(financialData.overdueTotal)}</span>
+              <span className="font-semibold text-red-500">{formatCurrency(Number(data.financial.overdue_total))}</span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-sm text-gray-500">Bu Ay Giderler</span>
-              <span className="font-semibold text-orange-600">{formatCurrency(financialData.expensesThisMonth)}</span>
+              <span className="font-semibold text-orange-600">{formatCurrency(Number(data.financial.expenses_this_month))}</span>
             </div>
           </div>
           {/* Tahsilat Progress */}
@@ -206,16 +219,20 @@ export default function Dashboard() {
             Geciken Ödemeler
           </h2>
           <div className="space-y-3">
-            {overduePayments.map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{item.customer}</p>
-                  <p className="text-xs text-gray-400">{item.unit} — Taksit #{item.installment}</p>
-                  <p className="text-xs text-red-400">Vade: {item.dueDate}</p>
+            {data.overdue_payments.length === 0 ? (
+              <p className="text-sm text-gray-400">Geciken ödeme yok 🎉</p>
+            ) : (
+              data.overdue_payments.map((item, i) => (
+                <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{item.customer_name}</p>
+                    <p className="text-xs text-gray-400">{item.unit_info} — Taksit #{item.installment_no}</p>
+                    <p className="text-xs text-red-400">Vade: {item.due_date}</p>
+                  </div>
+                  <span className="font-semibold text-red-600 text-sm">{formatCurrency(Number(item.overdue_amount))}</span>
                 </div>
-                <span className="font-semibold text-red-600 text-sm">{formatCurrency(item.amount)}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -226,16 +243,20 @@ export default function Dashboard() {
             Yaklaşan Firma Ödemeleri
           </h2>
           <div className="space-y-3">
-            {upcomingExpenses.map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{item.supplier}</p>
-                  <p className="text-xs text-gray-400">{item.description}</p>
-                  <p className="text-xs text-orange-500">Vade: {item.dueDate}</p>
+            {data.upcoming_expenses.length === 0 ? (
+              <p className="text-sm text-gray-400">Yaklaşan ödeme yok.</p>
+            ) : (
+              data.upcoming_expenses.map((item, i) => (
+                <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{item.supplier_name || 'Genel Gider'}</p>
+                    <p className="text-xs text-gray-400">{item.description}</p>
+                    <p className="text-xs text-orange-500">Vade: {item.due_date}</p>
+                  </div>
+                  <span className="font-semibold text-orange-600 text-sm">{formatCurrency(Number(item.amount))}</span>
                 </div>
-                <span className="font-semibold text-orange-600 text-sm">{formatCurrency(item.amount)}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -244,19 +265,19 @@ export default function Dashboard() {
       <div className="mt-6 bg-primary-500 rounded-xl p-5 text-white shadow-sm">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
-            <p className="text-3xl font-bold">{crmData.totalCustomers}</p>
+            <p className="text-3xl font-bold">{data.crm.total_customers}</p>
             <p className="text-sm text-primary-200 mt-1">Toplam Müşteri</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold">{crmData.openOpportunities}</p>
+            <p className="text-3xl font-bold">{data.crm.open_opportunities}</p>
             <p className="text-sm text-primary-200 mt-1">Açık Fırsat</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold">{crmData.newThisWeek}</p>
+            <p className="text-3xl font-bold">{data.crm.new_this_week}</p>
             <p className="text-sm text-primary-200 mt-1">Bu Hafta Yeni</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold">{crmData.wonThisMonth}</p>
+            <p className="text-3xl font-bold">{data.crm.won_this_month}</p>
             <p className="text-sm text-primary-200 mt-1">Bu Ay Satışa Dönen</p>
           </div>
         </div>

@@ -34,5 +34,8 @@ fi
 echo "  → Migration'lar uygulanıyor..."
 alembic upgrade head || echo "  ⚠️ Migration uygulanamadı (tablo zaten mevcut olabilir)"
 
+echo "🌱 Seed verileri kontrol ediliyor..."
+python /app/seed.py || echo "  ⚠️ Seed çalıştırılamadı"
+
 echo "🚀 Backend başlatılıyor..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
