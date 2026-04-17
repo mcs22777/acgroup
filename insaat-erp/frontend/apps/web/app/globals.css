@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-500: #1B3A6B;
+  --primary-600: #172F56;
+  --primary-700: #132542;
+  --accent-500: #D4A017;
+  --status-available: #10B981;
+  --status-reserved: #F59E0B;
+  --status-negotiation: #3B82F6;
+  --status-sold: #EF4444;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #F8FAFC;
+  color: #1E293B;
+}
