@@ -22,13 +22,18 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor — 401 durumunda otomatik login dene
+// Response interceptor — 401 durumunda token sil ve otomatik login dene
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
+      // Eski geçersiz token'ı sil, yeniden login zorla
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+      }
       try {
         const ok = await ensureAuth()
         if (ok) {
@@ -57,10 +62,12 @@ export async function ensureAuth(): Promise<boolean> {
 
   authPromise = (async () => {
     try {
+      console.log('[ensureAuth] Login deneniyor...', API_BASE_URL + '/auth/login')
       const res = await axios.post(`${API_BASE_URL}/auth/login`, {
         email: 'mehmet@acgrup.com',
         password: 'Sifre123!',
       })
+      console.log('[ensureAuth] Login yanıtı:', res.status, res.data?.access_token ? 'TOKEN OK' : 'TOKEN YOK')
       if (res.data.access_token) {
         localStorage.setItem('access_token', res.data.access_token)
         if (res.data.refresh_token) {
@@ -71,8 +78,9 @@ export async function ensureAuth(): Promise<boolean> {
       return false
     } catch (err: any) {
       const detail = err?.response?.data?.detail || err?.message || 'Bilinmeyen hata'
-      console.warn(`Otomatik login başarısız — ${detail}`)
-      console.warn('Backend çalışıyor mu? API_BASE_URL:', API_BASE_URL)
+      const status = err?.response?.status || 'N/A'
+      console.error(`[ensureAuth] Login başarısız — HTTP ${status}: ${detail}`)
+      console.error('[ensureAuth] API_BASE_URL:', API_BASE_URL)
       return false
     } finally {
       authPromise = null

@@ -1,23 +1,54 @@
 """JWT token yönetimi ve şifre hashing."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
 settings = get_settings()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+logger = logging.getLogger(__name__)
+
+# passlib + bcrypt uyumluluk — bcrypt 4.1+ ile passlib sorun çıkarabiliyor
+try:
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    _use_passlib = True
+    logger.info("passlib+bcrypt başarıyla yüklendi")
+except Exception as e:
+    logger.warning(f"passlib yüklenemedi ({e}), doğrudan bcrypt kullanılacak")
+    _use_passlib = False
+
+import bcrypt as _bcrypt
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    if _use_passlib:
+        try:
+            return pwd_context.hash(password)
+        except Exception:
+            pass
+    # Fallback: doğrudan bcrypt
+    return _bcrypt.hashpw(password.encode("utf-8"), _bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    if _use_passlib:
+        try:
+            return pwd_context.verify(plain_password, hashed_password)
+        except Exception as e:
+            logger.warning(f"passlib verify hatası ({e}), doğrudan bcrypt deneniyor")
+    # Fallback: doğrudan bcrypt
+    try:
+        return _bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
+    except Exception as e:
+        logger.error(f"bcrypt verify hatası: {e}")
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
