@@ -47,6 +47,12 @@ export default function ExpensesPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [newExpense, setNewExpense] = useState({
+    description: '', category: 'malzeme', amount: '', supplier_id: '',
+    project_id: '', due_date: '', invoice_no: '',
+  })
 
   useEffect(() => {
     async function load() {
@@ -227,8 +233,21 @@ export default function ExpensesPage() {
               </div>
               {/* Ödeme butonu */}
               {selectedExpense.status !== 'paid' && (
-                <button className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
-                  <CheckCircle className="w-4 h-4" /> Ödeme Kaydet
+                <button disabled={paying} onClick={async () => {
+                  const remaining = Number(selectedExpense.amount) - Number(selectedExpense.paid_amount)
+                  if (remaining <= 0) return
+                  setPaying(true)
+                  try {
+                    const res = await api.patch(`/expenses/${selectedExpense.id}/pay`, {
+                      paid_amount: remaining,
+                      paid_date: new Date().toISOString().split('T')[0],
+                      payment_method: 'bank_transfer',
+                    })
+                    setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? res.data : e))
+                    setSelectedExpense(res.data)
+                  } catch (err: any) { alert(err?.response?.data?.detail || 'Ödeme kaydedilemedi') } finally { setPaying(false) }
+                }} className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
+                  {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Tamamını Öde ({formatCurrency(Number(selectedExpense.amount) - Number(selectedExpense.paid_amount))})
                 </button>
               )}
             </div>
@@ -245,37 +264,54 @@ export default function ExpensesPage() {
               <button onClick={() => setShowNewForm(false)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Açıklama *</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Çimento alımı — 200 ton" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Açıklama *</label><input value={newExpense.description} onChange={e => setNewExpense(p => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Çimento alımı — 200 ton" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Kategori *</label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                  <select value={newExpense.category} onChange={e => setNewExpense(p => ({ ...p, category: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
                     {Object.entries(categoryConfig).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
                   </select>
                 </div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Tutar (₺) *</label><input type="number" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="450000" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Tutar (TL) *</label><input type="number" value={newExpense.amount} onChange={e => setNewExpense(p => ({ ...p, amount: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="450000" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Tedarikçi</label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                  <select value={newExpense.supplier_id} onChange={e => setNewExpense(p => ({ ...p, supplier_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
                     <option value="">Yok (Genel Gider)</option>
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Proje</label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                  <select value={newExpense.project_id} onChange={e => setNewExpense(p => ({ ...p, project_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
                     <option value="">Genel</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Vade Tarihi *</label><input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Fatura No</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="FTR-2026-XXXX" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Vade Tarihi *</label><input type="date" value={newExpense.due_date} onChange={e => setNewExpense(p => ({ ...p, due_date: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Fatura No</label><input value={newExpense.invoice_no} onChange={e => setNewExpense(p => ({ ...p, invoice_no: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="FTR-2026-XXXX" /></div>
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => setShowNewForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
-              <button className="px-5 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md">Kaydet</button>
+              <button disabled={saving || !newExpense.description || !newExpense.amount || !newExpense.due_date} onClick={async () => {
+                setSaving(true)
+                try {
+                  const payload: any = {
+                    description: newExpense.description, category: newExpense.category,
+                    amount: Number(newExpense.amount), due_date: newExpense.due_date,
+                  }
+                  if (newExpense.supplier_id) payload.supplier_id = newExpense.supplier_id
+                  if (newExpense.project_id) payload.project_id = newExpense.project_id
+                  if (newExpense.invoice_no) payload.invoice_no = newExpense.invoice_no
+                  const res = await api.post('/expenses', payload)
+                  setExpenses(prev => [res.data, ...prev])
+                  setNewExpense({ description: '', category: 'malzeme', amount: '', supplier_id: '', project_id: '', due_date: '', invoice_no: '' })
+                  setShowNewForm(false)
+                } catch (err: any) { alert(err?.response?.data?.detail || 'Gider eklenemedi') } finally { setSaving(false) }
+              }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Kaydet
+              </button>
             </div>
           </div>
         </div>

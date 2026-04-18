@@ -65,6 +65,11 @@ export default function CustomersPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [newCustomer, setNewCustomer] = useState({
+    first_name: '', last_name: '', phone: '', email: '',
+    source: 'web', tc_kimlik_no: '', notes: '',
+  })
 
   useEffect(() => {
     async function load() {
@@ -319,24 +324,38 @@ export default function CustomersPage() {
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Ad *</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Ahmet" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Soyad *</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Kaya" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Ad *</label><input value={newCustomer.first_name} onChange={e => setNewCustomer(p => ({ ...p, first_name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Ahmet" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Soyad *</label><input value={newCustomer.last_name} onChange={e => setNewCustomer(p => ({ ...p, last_name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Kaya" /></div>
               </div>
-              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Telefon *</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="0532 111 2233" /></div>
-              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">E-posta</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="ahmet@email.com" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Telefon *</label><input value={newCustomer.phone} onChange={e => setNewCustomer(p => ({ ...p, phone: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="0532 111 2233" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">E-posta</label><input value={newCustomer.email} onChange={e => setNewCustomer(p => ({ ...p, email: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="ahmet@email.com" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Kaynak</label>
-                  <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white transition">
+                  <select value={newCustomer.source} onChange={e => setNewCustomer(p => ({ ...p, source: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white transition">
                     <option value="web">Web</option><option value="referral">Referans</option><option value="walk_in">Ziyaret</option><option value="phone">Telefon</option><option value="ad">Reklam</option>
                   </select>
                 </div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">TC Kimlik No</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="12345678901" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">TC Kimlik No</label><input value={newCustomer.tc_kimlik_no} onChange={e => setNewCustomer(p => ({ ...p, tc_kimlik_no: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="12345678901" /></div>
               </div>
-              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Notlar</label><textarea className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={2} placeholder="Müşteri ile ilgili notlar..." /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Notlar</label><textarea value={newCustomer.notes} onChange={e => setNewCustomer(p => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={2} placeholder="Müşteri ile ilgili notlar..." /></div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => setShowNewForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
-              <button className="px-5 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md">Kaydet</button>
+              <button disabled={saving || !newCustomer.first_name || !newCustomer.last_name || !newCustomer.phone} onClick={async () => {
+                setSaving(true)
+                try {
+                  const payload: any = { first_name: newCustomer.first_name, last_name: newCustomer.last_name, phone: newCustomer.phone, source: newCustomer.source }
+                  if (newCustomer.email) payload.email = newCustomer.email
+                  if (newCustomer.tc_kimlik_no) payload.tc_kimlik_no = newCustomer.tc_kimlik_no
+                  if (newCustomer.notes) payload.notes = newCustomer.notes
+                  const res = await api.post('/customers', payload)
+                  setCustomers(prev => [res.data, ...prev])
+                  setNewCustomer({ first_name: '', last_name: '', phone: '', email: '', source: 'web', tc_kimlik_no: '', notes: '' })
+                  setShowNewForm(false)
+                } catch (err: any) { alert(err?.response?.data?.detail || 'Müşteri eklenemedi') } finally { setSaving(false) }
+              }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Kaydet
+              </button>
             </div>
           </div>
         </div>

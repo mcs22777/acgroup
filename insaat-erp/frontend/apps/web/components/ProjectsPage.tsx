@@ -55,6 +55,11 @@ export default function ProjectsPage() {
   const [projectStats, setProjectStats] = useState<Record<string, ProjectStats>>({})
   const [units, setUnits] = useState<UnitItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [newProject, setNewProject] = useState({
+    name: '', code: '', city: '', district: '', description: '',
+    start_date: '', expected_end: '',
+  })
 
   useEffect(() => {
     async function load() {
@@ -365,22 +370,39 @@ export default function ProjectsPage() {
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Proje Adı *</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Park Evler" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Proje Kodu *</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition font-mono" placeholder="PARK-EVLER" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Proje Adı *</label><input value={newProject.name} onChange={e => setNewProject(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Park Evler" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Proje Kodu *</label><input value={newProject.code} onChange={e => setNewProject(p => ({ ...p, code: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition font-mono" placeholder="PARK-EVLER" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Şehir</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="İstanbul" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">İlçe</label><input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Başakşehir" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Şehir</label><input value={newProject.city} onChange={e => setNewProject(p => ({ ...p, city: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="İstanbul" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">İlçe</label><input value={newProject.district} onChange={e => setNewProject(p => ({ ...p, district: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Başakşehir" /></div>
               </div>
-              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Açıklama</label><textarea className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={3} placeholder="Proje açıklaması..." /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Açıklama</label><textarea value={newProject.description} onChange={e => setNewProject(p => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={3} placeholder="Proje açıklaması..." /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Başlangıç Tarihi</label><input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Tahmini Bitiş</label><input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Başlangıç Tarihi</label><input type="date" value={newProject.start_date} onChange={e => setNewProject(p => ({ ...p, start_date: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Tahmini Bitiş</label><input type="date" value={newProject.expected_end} onChange={e => setNewProject(p => ({ ...p, expected_end: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => setShowNewForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
-              <button className="px-5 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md">Oluştur</button>
+              <button disabled={saving || !newProject.name || !newProject.code} onClick={async () => {
+                setSaving(true)
+                try {
+                  const payload: any = { name: newProject.name, code: newProject.code }
+                  if (newProject.city) payload.city = newProject.city
+                  if (newProject.district) payload.district = newProject.district
+                  if (newProject.description) payload.description = newProject.description
+                  if (newProject.start_date) payload.start_date = newProject.start_date
+                  if (newProject.expected_end) payload.expected_end = newProject.expected_end
+                  const res = await api.post('/projects', payload)
+                  setProjects(prev => [res.data, ...prev])
+                  setProjectStats(prev => ({ ...prev, [res.data.id]: { total_units: 0, available: 0, reserved: 0, negotiation: 0, sold: 0 } }))
+                  setNewProject({ name: '', code: '', city: '', district: '', description: '', start_date: '', expected_end: '' })
+                  setShowNewForm(false)
+                } catch (err: any) { alert(err?.response?.data?.detail || 'Proje oluşturulamadı') } finally { setSaving(false) }
+              }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Oluştur
+              </button>
             </div>
           </div>
         </div>

@@ -22,7 +22,7 @@ interface Customer {
   id: string; first_name: string; last_name: string; phone: string; email: string | null
 }
 interface UnitItem {
-  id: string; unit_number: string; room_type: string; project_id: string
+  id: string; unit_number: string; room_type: string; project_id: string; status: string
 }
 interface Project {
   id: string; name: string; code: string
@@ -51,6 +51,12 @@ export default function SalesPage() {
   const [units, setUnits] = useState<UnitItem[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [newSale, setNewSale] = useState({
+    customer_id: '', unit_id: '', sale_price: '', down_payment: '',
+    sale_date: new Date().toISOString().split('T')[0], installment_count: '12',
+    payment_start_date: '',
+  })
 
   useEffect(() => {
     async function load() {
@@ -285,29 +291,48 @@ export default function SalesPage() {
             </div>
             <div className="p-6 space-y-4">
               <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Müşteri *</label>
-                <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                <select value={newSale.customer_id} onChange={e => setNewSale(p => ({ ...p, customer_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
                   <option value="">Seçiniz...</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
                 </select>
               </div>
               <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Daire *</label>
-                <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                <select value={newSale.unit_id} onChange={e => setNewSale(p => ({ ...p, unit_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
                   <option value="">Seçiniz...</option>
                   {units.filter(u => u.status !== 'sold').map(u => <option key={u.id} value={u.id}>{u.unit_number} ({u.room_type})</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Satış Fiyatı *</label><input type="number" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="3500000" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Peşinat *</label><input type="number" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="700000" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Satış Fiyatı *</label><input type="number" value={newSale.sale_price} onChange={e => setNewSale(p => ({ ...p, sale_price: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="3500000" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Peşinat *</label><input type="number" value={newSale.down_payment} onChange={e => setNewSale(p => ({ ...p, down_payment: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="700000" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Satış Tarihi</label><input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Taksit Sayısı</label><input type="number" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="24" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Satış Tarihi *</label><input type="date" value={newSale.sale_date} onChange={e => setNewSale(p => ({ ...p, sale_date: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Taksit Sayısı</label><input type="number" value={newSale.installment_count} onChange={e => setNewSale(p => ({ ...p, installment_count: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="24" /></div>
               </div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Ödeme Başlangıç Tarihi</label><input type="date" value={newSale.payment_start_date} onChange={e => setNewSale(p => ({ ...p, payment_start_date: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" /></div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => setShowNewForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
-              <button className="px-5 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md">Satışı Kaydet</button>
+              <button disabled={saving || !newSale.customer_id || !newSale.unit_id || !newSale.sale_price || !newSale.sale_date} onClick={async () => {
+                setSaving(true)
+                try {
+                  const payload: any = {
+                    customer_id: newSale.customer_id, unit_id: newSale.unit_id,
+                    sale_price: Number(newSale.sale_price), down_payment: Number(newSale.down_payment || 0),
+                    sale_date: newSale.sale_date, installment_count: Number(newSale.installment_count || 0),
+                  }
+                  if (newSale.payment_start_date) payload.payment_start_date = newSale.payment_start_date
+                  const res = await api.post('/sales', payload)
+                  setSales(prev => [res.data, ...prev])
+                  // Mark unit as sold locally
+                  setUnits(prev => prev.map(u => u.id === newSale.unit_id ? { ...u, status: 'sold' } : u))
+                  setNewSale({ customer_id: '', unit_id: '', sale_price: '', down_payment: '', sale_date: new Date().toISOString().split('T')[0], installment_count: '12', payment_start_date: '' })
+                  setShowNewForm(false)
+                } catch (err: any) { alert(err?.response?.data?.detail || 'Satış kaydedilemedi') } finally { setSaving(false) }
+              }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Satışı Kaydet
+              </button>
             </div>
           </div>
         </div>

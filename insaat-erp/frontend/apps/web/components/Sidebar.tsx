@@ -2,11 +2,11 @@
 
 import {
   LayoutDashboard, Building2, Users, ShoppingCart,
-  Receipt, FileText, Settings, LogOut, ChevronLeft,
+  Receipt, FileText, Settings, LogOut, ChevronLeft, Truck,
 } from 'lucide-react'
 import { useState } from 'react'
 
-type Page = 'dashboard' | 'projects' | 'customers' | 'sales' | 'expenses'
+type Page = 'dashboard' | 'projects' | 'customers' | 'sales' | 'expenses' | 'suppliers'
 
 interface SidebarProps {
   currentPage: Page
@@ -19,6 +19,7 @@ const menuItems = [
   { id: 'customers' as Page, label: 'Müşteriler / CRM', icon: Users },
   { id: 'sales' as Page, label: 'Satışlar & Tahsilat', icon: ShoppingCart },
   { id: 'expenses' as Page, label: 'Firma Giderleri', icon: Receipt },
+  { id: 'suppliers' as Page, label: 'Tedarikçiler', icon: Truck },
 ]
 
 export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {

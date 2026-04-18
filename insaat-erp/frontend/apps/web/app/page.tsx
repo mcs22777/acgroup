@@ -7,8 +7,9 @@ import ProjectsPage from '@/components/ProjectsPage'
 import CustomersPage from '@/components/CustomersPage'
 import SalesPage from '@/components/SalesPage'
 import ExpensesPage from '@/components/ExpensesPage'
+import SuppliersPage from '@/components/SuppliersPage'
 
-type Page = 'dashboard' | 'projects' | 'customers' | 'sales' | 'expenses'
+type Page = 'dashboard' | 'projects' | 'customers' | 'sales' | 'expenses' | 'suppliers'
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
@@ -20,6 +21,7 @@ export default function Home() {
       case 'customers': return <CustomersPage />
       case 'sales': return <SalesPage />
       case 'expenses': return <ExpensesPage />
+      case 'suppliers': return <SuppliersPage />
       default: return <Dashboard />
     }
   }
