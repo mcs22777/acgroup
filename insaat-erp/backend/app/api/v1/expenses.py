@@ -63,7 +63,12 @@ async def list_expenses(
 
 @router.post("", response_model=ExpenseResponse, status_code=201)
 async def create_expense(body: ExpenseCreate, db: DB, current_user: CurrentUser):
-    expense = Expense(**body.model_dump(), created_by=current_user.id)
+    expense = Expense(
+        **body.model_dump(),
+        created_by=current_user.id,
+        paid_amount=0,
+        status="pending",
+    )
     db.add(expense)
     await db.flush()
     return expense

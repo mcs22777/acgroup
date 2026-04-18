@@ -49,6 +49,8 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [paying, setPaying] = useState(false)
+  const [payAmount, setPayAmount] = useState('')
+  const [payMethod, setPayMethod] = useState('bank_transfer')
   const [newExpense, setNewExpense] = useState({
     description: '', category: 'malzeme', amount: '', supplier_id: '',
     project_id: '', due_date: '', invoice_no: '',
@@ -231,25 +233,54 @@ export default function ExpensesPage() {
                 <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500">Vade</p><p className="font-medium">{formatDate(selectedExpense.due_date)}</p></div>
                 <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500">Fatura No</p><p className="font-medium">{selectedExpense.invoice_no || '—'}</p></div>
               </div>
-              {/* Ödeme butonu */}
-              {selectedExpense.status !== 'paid' && (
-                <button disabled={paying} onClick={async () => {
-                  const remaining = Number(selectedExpense.amount) - Number(selectedExpense.paid_amount)
-                  if (remaining <= 0) return
-                  setPaying(true)
-                  try {
-                    const res = await api.patch(`/expenses/${selectedExpense.id}/pay`, {
-                      paid_amount: remaining,
-                      paid_date: new Date().toISOString().split('T')[0],
-                      payment_method: 'bank_transfer',
-                    })
-                    setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? res.data : e))
-                    setSelectedExpense(res.data)
-                  } catch (err: any) { alert(err?.response?.data?.detail || 'Ödeme kaydedilemedi') } finally { setPaying(false) }
-                }} className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
-                  {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Tamamını Öde ({formatCurrency(Number(selectedExpense.amount) - Number(selectedExpense.paid_amount))})
-                </button>
-              )}
+              {/* Ödeme formu */}
+              {selectedExpense.status !== 'paid' && (() => {
+                const remaining = Number(selectedExpense.amount) - Number(selectedExpense.paid_amount)
+                return (
+                  <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-500" /> Ödeme Kaydet</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Tutar (TL)</label>
+                        <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
+                          placeholder={String(remaining)} max={remaining} min={1}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Ödeme Yöntemi</label>
+                        <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                          <option value="bank_transfer">Havale/EFT</option>
+                          <option value="cash">Nakit</option>
+                          <option value="credit_card">Kredi Kartı</option>
+                          <option value="check">Çek</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button disabled={paying} onClick={async () => {
+                        const amt = Number(payAmount) || remaining
+                        if (amt <= 0 || amt > remaining) { alert('Geçersiz tutar'); return }
+                        setPaying(true)
+                        try {
+                          const res = await api.patch(`/expenses/${selectedExpense.id}/pay`, {
+                            paid_amount: amt,
+                            paid_date: new Date().toISOString().split('T')[0],
+                            payment_method: payMethod,
+                          })
+                          setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? res.data : e))
+                          setSelectedExpense(res.data)
+                          setPayAmount('')
+                        } catch (err: any) { alert(err?.response?.data?.detail || 'Ödeme kaydedilemedi') } finally { setPaying(false) }
+                      }} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
+                        {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        {payAmount ? `${formatCurrency(Number(payAmount))} Öde` : 'Tamamını Öde'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">Kalan: {formatCurrency(remaining)}</p>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>

@@ -30,9 +30,10 @@ async def create_project(body: ProjectCreate, db: DB, current_user: CurrentUser)
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Bu proje kodu zaten mevcut")
 
-    project = Project(**body.model_dump())
+    project = Project(**body.model_dump(), total_units=0)
     db.add(project)
     await db.flush()
+    await db.refresh(project, ["blocks"])
     return project
 
 

@@ -92,6 +92,7 @@ async def create_sale(body: SaleCreate, db: DB, current_user: CurrentUser):
         payment_start_date=body.payment_start_date,
         notes=body.notes,
         created_by=current_user.id,
+        status="active",
     )
     db.add(sale)
     await db.flush()

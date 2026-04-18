@@ -71,6 +71,26 @@ export default function CustomersPage() {
     source: 'web', tc_kimlik_no: '', notes: '',
   })
 
+  // Not ekleme state
+  const [showNoteForm, setShowNoteForm] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+
+  // Fırsat ekleme state
+  const [showOppForm, setShowOppForm] = useState(false)
+  const [newOpp, setNewOpp] = useState({
+    customer_id: '', offered_price: '', priority: 'medium', expected_close: '', notes: '',
+  })
+
+  // Aktivite ekleme state
+  const [showActForm, setShowActForm] = useState(false)
+  const [newAct, setNewAct] = useState({
+    customer_id: '', activity_type: 'call', subject: '', description: '',
+  })
+
+  // Kanban ve Aktivite müşteri filtresi
+  const [customerFilter, setCustomerFilter] = useState<string>('all')
+
   useEffect(() => {
     async function load() {
       await ensureAuth()
@@ -106,6 +126,14 @@ export default function CustomersPage() {
     return matchSearch && matchSource
   })
 
+  // Kanban ve Timeline'da müşteriye göre filtreleme
+  const filteredOpportunities = customerFilter === 'all'
+    ? opportunities
+    : opportunities.filter(o => o.customer_id === customerFilter)
+  const filteredActivities = customerFilter === 'all'
+    ? activities
+    : activities.filter(a => a.customer_id === customerFilter)
+
   if (loading) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /></div>
   }
@@ -118,23 +146,47 @@ export default function CustomersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Müşteriler & CRM</h1>
           <p className="text-sm text-gray-500 mt-1">{customers.length} müşteri · {opportunities.length} fırsat</p>
         </div>
-        <button onClick={() => setShowNewForm(true)} className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md">
-          <Plus className="w-4 h-4" /> Yeni Müşteri
-        </button>
+        <div className="flex gap-2">
+          {view === 'kanban' && (
+            <button onClick={() => { setNewOpp(p => ({ ...p, customer_id: '' })); setShowOppForm(true) }}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md">
+              <Plus className="w-4 h-4" /> Yeni Fırsat
+            </button>
+          )}
+          {view === 'timeline' && (
+            <button onClick={() => { setNewAct(p => ({ ...p, customer_id: '' })); setShowActForm(true) }}
+              className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md">
+              <Plus className="w-4 h-4" /> Yeni Aktivite
+            </button>
+          )}
+          <button onClick={() => setShowNewForm(true)} className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md">
+            <Plus className="w-4 h-4" /> Yeni Müşteri
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit">
-        {([
-          { id: 'list' as View, label: 'Müşteri Listesi' },
-          { id: 'kanban' as View, label: 'Fırsat Kanban' },
-          { id: 'timeline' as View, label: 'Aktiviteler' },
-        ]).map(tab => (
-          <button key={tab.id} onClick={() => setView(tab.id)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition ${view === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+          {([
+            { id: 'list' as View, label: 'Müşteri Listesi' },
+            { id: 'kanban' as View, label: 'Fırsat Kanban' },
+            { id: 'timeline' as View, label: 'Aktiviteler' },
+          ]).map(tab => (
+            <button key={tab.id} onClick={() => setView(tab.id)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition ${view === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {/* Müşteri filtresi — kanban ve timeline için */}
+        {(view === 'kanban' || view === 'timeline') && (
+          <select value={customerFilter} onChange={e => setCustomerFilter(e.target.value)}
+            className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+            <option value="all">Tüm Müşteriler</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+          </select>
+        )}
       </div>
 
       {/* ── Müşteri Listesi ── */}
@@ -195,7 +247,7 @@ export default function CustomersPage() {
       {view === 'kanban' && (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {kanbanColumns.map(col => {
-            const colOpps = opportunities.filter(o => o.status === col.id)
+            const colOpps = filteredOpportunities.filter(o => o.status === col.id)
             return (
               <div key={col.id} className="flex-shrink-0 w-72">
                 <div className={`rounded-t-lg px-4 py-3 border-t-4 ${col.color} ${col.bg}`}>
@@ -231,10 +283,13 @@ export default function CustomersPage() {
       {/* ── Aktivite Timeline ── */}
       {view === 'timeline' && (
         <div className="max-w-2xl">
+          {filteredActivities.length === 0 && (
+            <div className="text-center py-12 text-gray-400 text-sm">Henüz aktivite bulunmuyor.</div>
+          )}
           <div className="relative space-y-0">
-            {activities.map((act, i) => {
+            {filteredActivities.map((act, i) => {
               const Icon = activityIcons[act.activity_type] || MessageSquare
-              const isLast = i === activities.length - 1
+              const isLast = i === filteredActivities.length - 1
               return (
                 <div key={act.id} className="relative flex gap-4 pb-6">
                   {!isLast && <div className="absolute left-5 top-10 w-0.5 h-[calc(100%-2rem)] bg-gray-200" />}
@@ -264,7 +319,7 @@ export default function CustomersPage() {
 
       {/* ── Müşteri Detay Modal ── */}
       {selectedCustomer && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => setSelectedCustomer(null)}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => { setSelectedCustomer(null); setShowNoteForm(false) }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <div className="flex items-center gap-3">
@@ -275,7 +330,7 @@ export default function CustomersPage() {
                   <h2 className="font-bold text-gray-900">{selectedCustomer.first_name} {selectedCustomer.last_name}</h2>
                 </div>
               </div>
-              <button onClick={() => setSelectedCustomer(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setSelectedCustomer(null); setShowNoteForm(false) }} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -305,10 +360,66 @@ export default function CustomersPage() {
                   <p className="text-xs text-gray-500 mt-0.5">Aktivite</p>
                 </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <button className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition"><Phone className="w-4 h-4" /> Ara</button>
-                <button className="flex-1 flex items-center justify-center gap-2 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition"><MessageSquare className="w-4 h-4" /> Not Ekle</button>
-              </div>
+
+              {/* Not ekleme formu */}
+              {showNoteForm ? (
+                <div className="border border-primary-200 rounded-lg p-4 space-y-3 bg-primary-50/30">
+                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><FileText className="w-4 h-4 text-primary-500" /> Not Ekle</h4>
+                  <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none bg-white"
+                    rows={3} placeholder="Müşteri hakkında not yazın..." autoFocus />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => { setShowNoteForm(false); setNoteText('') }} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition">İptal</button>
+                    <button disabled={noteSaving || !noteText.trim()} onClick={async () => {
+                      setNoteSaving(true)
+                      try {
+                        const res = await api.post('/customers/activities', {
+                          customer_id: selectedCustomer.id,
+                          activity_type: 'note',
+                          subject: 'Not',
+                          description: noteText.trim(),
+                        })
+                        setActivities(prev => [res.data, ...prev])
+                        setNoteText('')
+                        setShowNoteForm(false)
+                      } catch (err: any) { alert(err?.response?.data?.detail || 'Not eklenemedi') } finally { setNoteSaving(false) }
+                    }} className="px-4 py-1.5 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center gap-1.5">
+                      {noteSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Kaydet
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2 pt-2">
+                  <button className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition"><Phone className="w-4 h-4" /> Ara</button>
+                  <button onClick={() => setShowNoteForm(true)} className="flex-1 flex items-center justify-center gap-2 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition"><MessageSquare className="w-4 h-4" /> Not Ekle</button>
+                </div>
+              )}
+
+              {/* Bu müşterinin son aktiviteleri */}
+              {(() => {
+                const custActivities = activities.filter(a => a.customer_id === selectedCustomer.id).slice(0, 5)
+                if (custActivities.length === 0) return null
+                return (
+                  <div className="pt-2">
+                    <h4 className="text-xs font-semibold text-gray-500 mb-2">Son Aktiviteler</h4>
+                    <div className="space-y-2">
+                      {custActivities.map(act => {
+                        const Icon = activityIcons[act.activity_type] || MessageSquare
+                        return (
+                          <div key={act.id} className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-2.5">
+                            <Icon className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-gray-700">{act.subject || act.activity_type}</span>
+                              {act.description && <p className="text-gray-500 mt-0.5 line-clamp-1">{act.description}</p>}
+                            </div>
+                            <span className="text-gray-400 whitespace-nowrap">{new Date(act.activity_date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>
@@ -355,6 +466,112 @@ export default function CustomersPage() {
                 } catch (err: any) { alert(err?.response?.data?.detail || 'Müşteri eklenemedi') } finally { setSaving(false) }
               }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />} Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Yeni Fırsat Modal ── */}
+      {showOppForm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => setShowOppForm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Yeni Fırsat Ekle</h2>
+              <button onClick={() => setShowOppForm(false)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Müşteri *</label>
+                <select value={newOpp.customer_id} onChange={e => setNewOpp(p => ({ ...p, customer_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                  <option value="">Seçiniz...</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Teklif Fiyatı (TL)</label>
+                  <input type="number" value={newOpp.offered_price} onChange={e => setNewOpp(p => ({ ...p, offered_price: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="3500000" />
+                </div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Öncelik</label>
+                  <select value={newOpp.priority} onChange={e => setNewOpp(p => ({ ...p, priority: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                    <option value="high">Yüksek</option><option value="medium">Orta</option><option value="low">Düşük</option>
+                  </select>
+                </div>
+              </div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Hedef Kapanış Tarihi</label>
+                <input type="date" value={newOpp.expected_close} onChange={e => setNewOpp(p => ({ ...p, expected_close: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" />
+              </div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Notlar</label>
+                <textarea value={newOpp.notes} onChange={e => setNewOpp(p => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={2} placeholder="Fırsat hakkında notlar..." />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setShowOppForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
+              <button disabled={saving || !newOpp.customer_id} onClick={async () => {
+                setSaving(true)
+                try {
+                  const payload: any = { customer_id: newOpp.customer_id, priority: newOpp.priority }
+                  if (newOpp.offered_price) payload.offered_price = Number(newOpp.offered_price)
+                  if (newOpp.expected_close) payload.expected_close = newOpp.expected_close
+                  if (newOpp.notes) payload.notes = newOpp.notes
+                  const res = await api.post('/customers/opportunities', payload)
+                  setOpportunities(prev => [res.data, ...prev])
+                  setNewOpp({ customer_id: '', offered_price: '', priority: 'medium', expected_close: '', notes: '' })
+                  setShowOppForm(false)
+                } catch (err: any) { alert(err?.response?.data?.detail || 'Fırsat eklenemedi') } finally { setSaving(false) }
+              }} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Fırsat Ekle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Yeni Aktivite Modal ── */}
+      {showActForm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => setShowActForm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Yeni Aktivite Ekle</h2>
+              <button onClick={() => setShowActForm(false)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Müşteri *</label>
+                <select value={newAct.customer_id} onChange={e => setNewAct(p => ({ ...p, customer_id: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                  <option value="">Seçiniz...</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Aktivite Türü *</label>
+                  <select value={newAct.activity_type} onChange={e => setNewAct(p => ({ ...p, activity_type: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                    <option value="call">Arama</option><option value="meeting">Toplantı</option>
+                    <option value="email">E-posta</option><option value="note">Not</option>
+                    <option value="site_visit">Saha Ziyareti</option>
+                  </select>
+                </div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Konu</label>
+                  <input value={newAct.subject} onChange={e => setNewAct(p => ({ ...p, subject: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="Fiyat görüşmesi" />
+                </div>
+              </div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Açıklama</label>
+                <textarea value={newAct.description} onChange={e => setNewAct(p => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={3} placeholder="Aktivite detayları..." />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setShowActForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
+              <button disabled={saving || !newAct.customer_id} onClick={async () => {
+                setSaving(true)
+                try {
+                  const payload: any = { customer_id: newAct.customer_id, activity_type: newAct.activity_type }
+                  if (newAct.subject) payload.subject = newAct.subject
+                  if (newAct.description) payload.description = newAct.description
+                  const res = await api.post('/customers/activities', payload)
+                  setActivities(prev => [res.data, ...prev])
+                  setNewAct({ customer_id: '', activity_type: 'call', subject: '', description: '' })
+                  setShowActForm(false)
+                } catch (err: any) { alert(err?.response?.data?.detail || 'Aktivite eklenemedi') } finally { setSaving(false) }
+              }} className="px-5 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Aktivite Ekle
               </button>
             </div>
           </div>
