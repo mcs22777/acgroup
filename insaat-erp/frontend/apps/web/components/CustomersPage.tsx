@@ -5,7 +5,7 @@ import {
   Users, Plus, Search, Phone, Mail, User, Tag,
   X, ChevronRight, MessageSquare, Calendar, Clock,
   PhoneCall, Video, FileText, Star, Filter,
-  ArrowRight, GripVertical, Loader2,
+  ArrowRight, GripVertical, Loader2, Edit3, Trash2, Save,
 } from 'lucide-react'
 import api, { ensureAuth, formatDate } from '@/lib/api'
 
@@ -90,6 +90,11 @@ export default function CustomersPage() {
 
   // Kanban ve Aktivite müşteri filtresi
   const [customerFilter, setCustomerFilter] = useState<string>('all')
+
+  // Düzenleme state
+  const [editMode, setEditMode] = useState(false)
+  const [editCustomer, setEditCustomer] = useState<any>({})
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -319,7 +324,7 @@ export default function CustomersPage() {
 
       {/* ── Müşteri Detay Modal ── */}
       {selectedCustomer && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => { setSelectedCustomer(null); setShowNoteForm(false) }}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => { setSelectedCustomer(null); setShowNoteForm(false); setEditMode(false) }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <div className="flex items-center gap-3">
@@ -330,9 +335,57 @@ export default function CustomersPage() {
                   <h2 className="font-bold text-gray-900">{selectedCustomer.first_name} {selectedCustomer.last_name}</h2>
                 </div>
               </div>
-              <button onClick={() => { setSelectedCustomer(null); setShowNoteForm(false) }} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => { setEditMode(!editMode); setEditCustomer({ first_name: selectedCustomer.first_name, last_name: selectedCustomer.last_name, phone: selectedCustomer.phone, email: selectedCustomer.email || '', source: selectedCustomer.source || 'web', notes: selectedCustomer.notes || '' }) }}
+                  className={`p-2 rounded-lg hover:bg-gray-100 transition ${editMode ? 'text-primary-600 bg-primary-50' : 'text-gray-500'}`}><Edit3 className="w-4 h-4" /></button>
+                <button disabled={deleting} onClick={async () => {
+                  if (!confirm('Bu müşteriyi silmek istediğinize emin misiniz?')) return
+                  setDeleting(true)
+                  try {
+                    await api.delete(`/customers/${selectedCustomer.id}`)
+                    setCustomers(prev => prev.filter(c => c.id !== selectedCustomer.id))
+                    setSelectedCustomer(null)
+                  } catch (err: any) { alert(err?.response?.data?.detail || 'Müşteri silinemedi') } finally { setDeleting(false) }
+                }} className="p-2 rounded-lg hover:bg-red-50 transition text-red-500"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => { setSelectedCustomer(null); setShowNoteForm(false); setEditMode(false) }} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              </div>
             </div>
             <div className="p-6 space-y-4">
+              {/* Düzenleme modu */}
+              {editMode ? (
+                <div className="bg-primary-50/30 border border-primary-200 rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-700">Müşteri Bilgilerini Düzenle</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-xs text-gray-500 mb-1">Ad</label><input value={editCustomer.first_name || ''} onChange={e => setEditCustomer((p: any) => ({ ...p, first_name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                    <div><label className="block text-xs text-gray-500 mb-1">Soyad</label><input value={editCustomer.last_name || ''} onChange={e => setEditCustomer((p: any) => ({ ...p, last_name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-xs text-gray-500 mb-1">Telefon</label><input value={editCustomer.phone || ''} onChange={e => setEditCustomer((p: any) => ({ ...p, phone: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                    <div><label className="block text-xs text-gray-500 mb-1">E-posta</label><input value={editCustomer.email || ''} onChange={e => setEditCustomer((p: any) => ({ ...p, email: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                  </div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Kaynak</label>
+                    <select value={editCustomer.source || 'web'} onChange={e => setEditCustomer((p: any) => ({ ...p, source: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none">
+                      <option value="web">Web</option><option value="referral">Referans</option><option value="walk_in">Ziyaret</option><option value="phone">Telefon</option><option value="ad">Reklam</option>
+                    </select>
+                  </div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Notlar</label><textarea value={editCustomer.notes || ''} onChange={e => setEditCustomer((p: any) => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" rows={2} /></div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setEditMode(false)} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition">İptal</button>
+                    <button disabled={saving} onClick={async () => {
+                      setSaving(true)
+                      try {
+                        const res = await api.put(`/customers/${selectedCustomer.id}`, editCustomer)
+                        setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? { ...c, ...res.data } : c))
+                        setSelectedCustomer({ ...selectedCustomer, ...res.data })
+                        setEditMode(false)
+                      } catch (err: any) { alert(err?.response?.data?.detail || 'Güncellenemedi') } finally { setSaving(false) }
+                    }} className="px-4 py-1.5 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center gap-1.5">
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Kaydet
+                    </button>
+                  </div>
+                </div>
+              ) : (
+              <>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500 mb-1">Telefon</p><p className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-gray-400" /> {selectedCustomer.phone}</p></div>
                 <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500 mb-1">E-posta</p><p className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-gray-400" /> {selectedCustomer.email || '—'}</p></div>
@@ -349,6 +402,8 @@ export default function CustomersPage() {
                   <p className="text-xs text-amber-600 font-medium mb-1">Notlar</p>
                   <p className="text-sm text-gray-700">{selectedCustomer.notes}</p>
                 </div>
+              )}
+              </>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="border border-gray-200 rounded-lg p-4 text-center">

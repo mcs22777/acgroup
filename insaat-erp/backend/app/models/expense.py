@@ -39,3 +39,9 @@ class Expense(Base, UUIDMixin, TimestampMixin):
     # İlişkiler
     supplier = relationship("Supplier", back_populates="expenses")
     project = relationship("Project")
+    installments = relationship(
+        "ExpenseInstallment", back_populates="expense",
+        cascade="all, delete-orphan",
+        order_by="ExpenseInstallment.installment_no",
+        lazy="selectin",
+    )

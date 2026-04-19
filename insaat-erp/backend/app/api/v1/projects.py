@@ -59,6 +59,16 @@ async def update_project(project_id: UUID, body: ProjectUpdate, db: DB, current_
     return project
 
 
+@router.delete("/{project_id}", status_code=204)
+async def delete_project(project_id: UUID, db: DB, current_user: CurrentUser):
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Proje bulunamadı")
+    await db.delete(project)
+    await db.flush()
+
+
 @router.get("/{project_id}/summary", response_model=ProjectSummary)
 async def get_project_summary(project_id: UUID, db: DB, current_user: CurrentUser):
     result = await db.execute(select(Project).where(Project.id == project_id))

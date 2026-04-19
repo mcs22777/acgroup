@@ -13,6 +13,7 @@ from app.models.contract import ContractTemplate, Contract
 from app.models.document import Document
 from app.models.supplier import Supplier
 from app.models.expense import Expense
+from app.models.expense_installment import ExpenseInstallment
 from app.models.audit import AuditLog
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     "Document",
     "Supplier",
     "Expense",
+    "ExpenseInstallment",
     "AuditLog",
 ]

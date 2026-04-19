@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
   Receipt, Plus, Search, Filter, Calendar,
   Clock, CheckCircle, AlertTriangle, X, ChevronRight,
-  Wallet, TrendingDown, ArrowDownRight, Loader2,
+  Wallet, TrendingDown, ArrowDownRight, Loader2, Edit3, Trash2, Save,
 } from 'lucide-react'
 import api, { ensureAuth, formatCurrency, formatDate } from '@/lib/api'
 
@@ -55,6 +55,18 @@ export default function ExpensesPage() {
     description: '', category: 'malzeme', amount: '', supplier_id: '',
     project_id: '', due_date: '', invoice_no: '',
   })
+
+  // Düzenleme state
+  const [editMode, setEditMode] = useState(false)
+  const [editExpense, setEditExpense] = useState<any>({})
+  const [deleting, setDeleting] = useState(false)
+
+  // Gider taksit state
+  interface ExpInst { id: string; expense_id: string; installment_no: number; due_date: string; amount: number; paid_amount: number; paid_date: string | null; status: string }
+  const [expInstallments, setExpInstallments] = useState<ExpInst[]>([])
+  const [showInstPlan, setShowInstPlan] = useState(false)
+  const [instCount, setInstCount] = useState('3')
+  const [instStartDate, setInstStartDate] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -207,13 +219,66 @@ export default function ExpensesPage() {
 
       {/* ── Gider Detay Modal ── */}
       {selectedExpense && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => setSelectedExpense(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => { setSelectedExpense(null); setEditMode(false) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="font-bold text-gray-900">Gider Detayı</h2>
-              <button onClick={() => setSelectedExpense(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => { setEditMode(!editMode); setEditExpense({ description: selectedExpense.description, category: selectedExpense.category, amount: String(selectedExpense.amount), due_date: selectedExpense.due_date, invoice_no: selectedExpense.invoice_no || '' }) }}
+                  className={`p-2 rounded-lg hover:bg-gray-100 transition ${editMode ? 'text-primary-600 bg-primary-50' : 'text-gray-500'}`}><Edit3 className="w-4 h-4" /></button>
+                <button disabled={deleting} onClick={async () => {
+                  if (!confirm('Bu gideri silmek istediğinize emin misiniz?')) return
+                  setDeleting(true)
+                  try {
+                    await api.delete(`/expenses/${selectedExpense.id}`)
+                    setExpenses(prev => prev.filter(e => e.id !== selectedExpense.id))
+                    setSelectedExpense(null)
+                  } catch (err: any) { alert(err?.response?.data?.detail || 'Gider silinemedi') } finally { setDeleting(false) }
+                }} className="p-2 rounded-lg hover:bg-red-50 transition text-red-500"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => { setSelectedExpense(null); setEditMode(false) }} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              </div>
             </div>
             <div className="p-6 space-y-4">
+              {/* Düzenleme */}
+              {editMode ? (
+                <div className="bg-primary-50/30 border border-primary-200 rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-700">Gider Bilgilerini Düzenle</h4>
+                  <div><label className="block text-xs text-gray-500 mb-1">Açıklama</label><input value={editExpense.description || ''} onChange={e => setEditExpense((p: any) => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-xs text-gray-500 mb-1">Kategori</label>
+                      <select value={editExpense.category || 'malzeme'} onChange={e => setEditExpense((p: any) => ({ ...p, category: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none">
+                        {Object.entries(categoryConfig).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                      </select>
+                    </div>
+                    <div><label className="block text-xs text-gray-500 mb-1">Tutar (TL)</label><input type="number" value={editExpense.amount || ''} onChange={e => setEditExpense((p: any) => ({ ...p, amount: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-xs text-gray-500 mb-1">Vade</label><input type="date" value={editExpense.due_date || ''} onChange={e => setEditExpense((p: any) => ({ ...p, due_date: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none" /></div>
+                    <div><label className="block text-xs text-gray-500 mb-1">Fatura No</label><input value={editExpense.invoice_no || ''} onChange={e => setEditExpense((p: any) => ({ ...p, invoice_no: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none" /></div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setEditMode(false)} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition">İptal</button>
+                    <button disabled={saving} onClick={async () => {
+                      setSaving(true)
+                      try {
+                        const payload: any = {}
+                        if (editExpense.description) payload.description = editExpense.description
+                        if (editExpense.category) payload.category = editExpense.category
+                        if (editExpense.amount) payload.amount = Number(editExpense.amount)
+                        if (editExpense.due_date) payload.due_date = editExpense.due_date
+                        if (editExpense.invoice_no) payload.invoice_no = editExpense.invoice_no
+                        const res = await api.put(`/expenses/${selectedExpense.id}`, payload)
+                        setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? res.data : e))
+                        setSelectedExpense(res.data)
+                        setEditMode(false)
+                      } catch (err: any) { alert(err?.response?.data?.detail || 'Güncellenemedi') } finally { setSaving(false) }
+                    }} className="px-4 py-1.5 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center gap-1.5">
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Kaydet
+                    </button>
+                  </div>
+                </div>
+              ) : (
+              <>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm font-medium text-gray-900 mb-1">{selectedExpense.description}</p>
                 <p className="text-xs text-gray-500">{getSupplierName(selectedExpense.supplier_id)} · {getProjectName(selectedExpense.project_id)}</p>
@@ -233,31 +298,134 @@ export default function ExpensesPage() {
                 <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500">Vade</p><p className="font-medium">{formatDate(selectedExpense.due_date)}</p></div>
                 <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500">Fatura No</p><p className="font-medium">{selectedExpense.invoice_no || '—'}</p></div>
               </div>
-              {/* Ödeme formu */}
-              {selectedExpense.status !== 'paid' && (() => {
-                const remaining = Number(selectedExpense.amount) - Number(selectedExpense.paid_amount)
-                return (
-                  <div className="border border-gray-200 rounded-lg p-4 space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-500" /> Ödeme Kaydet</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Tutar (TL)</label>
-                        <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
-                          placeholder={String(remaining)} max={remaining} min={1}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+              </>
+              )}
+
+              {/* Ödeme Planı Oluştur */}
+              {selectedExpense.status !== 'paid' && !editMode && (
+                <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Calendar className="w-4 h-4 text-primary-500" /> Aylık Ödeme Planı</h4>
+                    {!showInstPlan && (
+                      <button onClick={async () => {
+                        try {
+                          const res = await api.get(`/expenses/${selectedExpense.id}/installments`)
+                          setExpInstallments(res.data)
+                        } catch { setExpInstallments([]) }
+                        setShowInstPlan(true)
+                      }} className="text-xs text-primary-600 hover:text-primary-700 font-medium">
+                        {expInstallments.length > 0 ? 'Planı Göster' : 'Plan Oluştur'}
+                      </button>
+                    )}
+                  </div>
+                  {showInstPlan && (
+                    <>
+                      {/* Plan oluşturma formu */}
+                      <div className="flex gap-2">
+                        <div className="flex-1"><label className="block text-xs text-gray-500 mb-1">Ay Sayısı</label>
+                          <input type="number" value={instCount} onChange={e => setInstCount(e.target.value)} min={1} max={60} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none" />
+                        </div>
+                        <div className="flex-1"><label className="block text-xs text-gray-500 mb-1">Başlangıç</label>
+                          <input type="date" value={instStartDate} onChange={e => setInstStartDate(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none" />
+                        </div>
+                        <div className="flex items-end">
+                          <button disabled={!instCount || !instStartDate} onClick={async () => {
+                            try {
+                              const res = await api.post(`/expenses/${selectedExpense.id}/installments`, { count: Number(instCount), start_date: instStartDate })
+                              setExpInstallments(res.data)
+                            } catch (err: any) { alert(err?.response?.data?.detail || 'Plan oluşturulamadı') }
+                          }} className="px-3 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition">Oluştur</button>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Ödeme Yöntemi</label>
-                        <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
-                          <option value="bank_transfer">Havale/EFT</option>
-                          <option value="cash">Nakit</option>
-                          <option value="credit_card">Kredi Kartı</option>
-                          <option value="check">Çek</option>
-                        </select>
+
+                      {/* Taksit listesi */}
+                      {expInstallments.length > 0 && (
+                        <div className="border border-gray-100 rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead><tr className="bg-gray-50">
+                              <th className="text-left text-xs font-semibold text-gray-500 px-3 py-2">No</th>
+                              <th className="text-left text-xs font-semibold text-gray-500 px-3 py-2">Vade</th>
+                              <th className="text-right text-xs font-semibold text-gray-500 px-3 py-2">Tutar</th>
+                              <th className="text-center text-xs font-semibold text-gray-500 px-3 py-2">Durum</th>
+                              <th className="text-center text-xs font-semibold text-gray-500 px-3 py-2">İşlem</th>
+                            </tr></thead>
+                            <tbody>
+                              {expInstallments.map(inst => (
+                                <tr key={inst.id} className="border-t border-gray-50">
+                                  <td className="px-3 py-2 text-sm text-gray-700 font-medium">{inst.installment_no}</td>
+                                  <td className="px-3 py-2 text-sm text-gray-600">{formatDate(inst.due_date)}</td>
+                                  <td className="px-3 py-2 text-sm text-right font-medium">{formatCurrency(inst.amount)}</td>
+                                  <td className="px-3 py-2 text-center">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${inst.status === 'paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                                      {inst.status === 'paid' ? 'Ödendi' : 'Bekliyor'}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    {inst.status !== 'paid' ? (
+                                      <button onClick={async () => {
+                                        try {
+                                          const res = await api.patch(`/expenses/${selectedExpense.id}/installments/${inst.id}`, {
+                                            status: 'paid', paid_amount: inst.amount, paid_date: new Date().toISOString().split('T')[0],
+                                          })
+                                          setExpInstallments(prev => prev.map(i => i.id === inst.id ? { ...i, status: 'paid', paid_amount: inst.amount } : i))
+                                          // Ana gideri güncelle
+                                          const totalPaid = expInstallments.reduce((s, i) => s + (i.id === inst.id ? inst.amount : (i.status === 'paid' ? i.paid_amount : 0)), 0)
+                                          const updatedExp = { ...selectedExpense, paid_amount: totalPaid, status: totalPaid >= Number(selectedExpense.amount) ? 'paid' : 'partial' }
+                                          setSelectedExpense(updatedExp)
+                                          setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? updatedExp : e))
+                                        } catch (err: any) { alert(err?.response?.data?.detail || 'Taksit güncellenemedi') }
+                                      }} className="px-2 py-1 text-[10px] font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded transition">Ödendi</button>
+                                    ) : (
+                                      <button onClick={async () => {
+                                        try {
+                                          await api.patch(`/expenses/${selectedExpense.id}/installments/${inst.id}`, {
+                                            status: 'pending', paid_amount: 0, paid_date: null,
+                                          })
+                                          setExpInstallments(prev => prev.map(i => i.id === inst.id ? { ...i, status: 'pending', paid_amount: 0 } : i))
+                                          const totalPaid = expInstallments.reduce((s, i) => s + (i.id === inst.id ? 0 : (i.status === 'paid' ? i.paid_amount : 0)), 0)
+                                          const updatedExp = { ...selectedExpense, paid_amount: totalPaid, status: totalPaid > 0 ? 'partial' : 'pending' }
+                                          setSelectedExpense(updatedExp)
+                                          setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? updatedExp : e))
+                                        } catch (err: any) { alert(err?.response?.data?.detail || 'Taksit güncellenemedi') }
+                                      }} className="px-2 py-1 text-[10px] font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition">İptal</button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Tek seferlik ödeme formu */}
+              {selectedExpense.status !== 'paid' && !editMode && (
+                (() => {
+                  const remaining = Number(selectedExpense.amount) - Number(selectedExpense.paid_amount)
+                  return (
+                    <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-500" /> Tek Seferlik Ödeme</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Tutar (TL)</label>
+                          <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
+                            placeholder={String(remaining)} max={remaining} min={1}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Ödeme Yöntemi</label>
+                          <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                            <option value="bank_transfer">Havale/EFT</option>
+                            <option value="cash">Nakit</option>
+                            <option value="credit_card">Kredi Kartı</option>
+                            <option value="check">Çek</option>
+                          </select>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
                       <button disabled={paying} onClick={async () => {
                         const amt = Number(payAmount) || remaining
                         if (amt <= 0 || amt > remaining) { alert('Geçersiz tutar'); return }
@@ -272,15 +440,15 @@ export default function ExpensesPage() {
                           setSelectedExpense(res.data)
                           setPayAmount('')
                         } catch (err: any) { alert(err?.response?.data?.detail || 'Ödeme kaydedilemedi') } finally { setPaying(false) }
-                      }} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
+                      }} className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
                         {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                         {payAmount ? `${formatCurrency(Number(payAmount))} Öde` : 'Tamamını Öde'}
                       </button>
+                      <p className="text-xs text-gray-400 text-center">Kalan: {formatCurrency(remaining)}</p>
                     </div>
-                    <p className="text-xs text-gray-400 text-center">Kalan: {formatCurrency(remaining)}</p>
-                  </div>
-                )
-              })()}
+                  )
+                })()
+              )}
             </div>
           </div>
         </div>

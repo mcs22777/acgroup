@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import {
   Building2, Plus, Search, LayoutGrid, List, MapPin,
-  Calendar, ChevronRight, X, Home, Eye, Edit3,
-  CheckCircle, Clock, PauseCircle, Loader2,
+  Calendar, ChevronRight, X, Home, Eye, Edit3, Trash2,
+  CheckCircle, Clock, PauseCircle, Loader2, Save,
 } from 'lucide-react'
 import api, { ensureAuth, formatCurrency } from '@/lib/api'
 
@@ -17,7 +17,8 @@ interface Project {
 interface ProjectStats { total_units: number; available: number; reserved: number; negotiation: number; sold: number }
 interface UnitItem {
   id: string; floor_number: number; unit_number: string; room_type: string;
-  gross_area_m2: number | null; list_price: number; status: string
+  gross_area_m2: number | null; net_area_m2: number | null; list_price: number; status: string;
+  has_balcony: boolean; has_parking: boolean; direction: string | null; notes: string | null
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -61,13 +62,27 @@ export default function ProjectsPage() {
     start_date: '', expected_end: '',
   })
 
+  // Düzenleme state
+  const [editMode, setEditMode] = useState(false)
+  const [editProject, setEditProject] = useState<any>({})
+  const [deleting, setDeleting] = useState(false)
+
+  // Daire ekleme state
+  const [showUnitForm, setShowUnitForm] = useState(false)
+  const [selectedUnit, setSelectedUnit] = useState<UnitItem | null>(null)
+  const [editingUnit, setEditingUnit] = useState(false)
+  const [newUnit, setNewUnit] = useState({
+    floor_number: '', unit_number: '', room_type: '2+1',
+    gross_area_m2: '', net_area_m2: '', list_price: '',
+    has_balcony: false, has_parking: false, direction: '', notes: '',
+  })
+
   useEffect(() => {
     async function load() {
       await ensureAuth()
       try {
         const res = await api.get('/projects')
         setProjects(res.data)
-        // Load stats for each project
         const statsMap: Record<string, ProjectStats> = {}
         await Promise.all(res.data.map(async (p: Project) => {
           try {
@@ -87,7 +102,6 @@ export default function ProjectsPage() {
     load()
   }, [])
 
-  // Load units when project selected
   useEffect(() => {
     if (!selectedProject) { setUnits([]); return }
     async function loadUnits() {
@@ -111,7 +125,6 @@ export default function ProjectsPage() {
 
   const getStats = (id: string): ProjectStats => projectStats[id] || { total_units: 0, available: 0, reserved: 0, negotiation: 0, sold: 0 }
 
-  // Group units by floor for the matrix
   const floorMap: Record<number, UnitItem[]> = {}
   units.forEach(u => {
     if (!floorMap[u.floor_number]) floorMap[u.floor_number] = []
@@ -120,12 +133,85 @@ export default function ProjectsPage() {
   const floors = Object.keys(floorMap).map(Number).sort((a, b) => b - a)
   const maxUnitsPerFloor = Math.max(1, ...Object.values(floorMap).map(arr => arr.length))
 
+  const handleDeleteProject = async () => {
+    if (!selectedProject || !confirm('Bu projeyi silmek istediğinize emin misiniz?')) return
+    setDeleting(true)
+    try {
+      await api.delete(`/projects/${selectedProject.id}`)
+      setProjects(prev => prev.filter(p => p.id !== selectedProject.id))
+      setSelectedProject(null)
+    } catch (err: any) { alert(err?.response?.data?.detail || 'Proje silinemedi') } finally { setDeleting(false) }
+  }
+
+  const handleUpdateProject = async () => {
+    if (!selectedProject) return
+    setSaving(true)
+    try {
+      const res = await api.put(`/projects/${selectedProject.id}`, editProject)
+      setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, ...res.data } : p))
+      setSelectedProject({ ...selectedProject, ...res.data })
+      setEditMode(false)
+    } catch (err: any) { alert(err?.response?.data?.detail || 'Proje güncellenemedi') } finally { setSaving(false) }
+  }
+
+  const handleSaveUnit = async () => {
+    if (!selectedProject) return
+    setSaving(true)
+    try {
+      if (editingUnit && selectedUnit) {
+        // Güncelleme
+        const payload: any = {}
+        if (newUnit.room_type) payload.room_type = newUnit.room_type
+        if (newUnit.gross_area_m2) payload.gross_area_m2 = Number(newUnit.gross_area_m2)
+        if (newUnit.net_area_m2) payload.net_area_m2 = Number(newUnit.net_area_m2)
+        if (newUnit.list_price) payload.list_price = Number(newUnit.list_price)
+        payload.has_balcony = newUnit.has_balcony
+        payload.has_parking = newUnit.has_parking
+        if (newUnit.direction) payload.direction = newUnit.direction
+        if (newUnit.notes) payload.notes = newUnit.notes
+        const res = await api.put(`/units/${selectedUnit.id}`, payload)
+        setUnits(prev => prev.map(u => u.id === selectedUnit.id ? res.data : u))
+      } else {
+        // Yeni oluştur
+        const payload: any = {
+          project_id: selectedProject.id,
+          floor_number: Number(newUnit.floor_number),
+          unit_number: newUnit.unit_number,
+          room_type: newUnit.room_type,
+          list_price: Number(newUnit.list_price),
+        }
+        if (selectedProject.blocks.length > 0) payload.block_id = selectedProject.blocks[0].id
+        if (newUnit.gross_area_m2) payload.gross_area_m2 = Number(newUnit.gross_area_m2)
+        if (newUnit.net_area_m2) payload.net_area_m2 = Number(newUnit.net_area_m2)
+        payload.has_balcony = newUnit.has_balcony
+        payload.has_parking = newUnit.has_parking
+        if (newUnit.direction) payload.direction = newUnit.direction
+        if (newUnit.notes) payload.notes = newUnit.notes
+        const res = await api.post('/units', payload)
+        setUnits(prev => [...prev, res.data])
+      }
+      setShowUnitForm(false)
+      setSelectedUnit(null)
+      setEditingUnit(false)
+      setNewUnit({ floor_number: '', unit_number: '', room_type: '2+1', gross_area_m2: '', net_area_m2: '', list_price: '', has_balcony: false, has_parking: false, direction: '', notes: '' })
+    } catch (err: any) { alert(err?.response?.data?.detail || 'Daire kaydedilemedi') } finally { setSaving(false) }
+  }
+
+  const openEditUnit = (unit: UnitItem) => {
+    setSelectedUnit(unit)
+    setEditingUnit(true)
+    setNewUnit({
+      floor_number: String(unit.floor_number), unit_number: unit.unit_number,
+      room_type: unit.room_type, gross_area_m2: unit.gross_area_m2 ? String(unit.gross_area_m2) : '',
+      net_area_m2: unit.net_area_m2 ? String(unit.net_area_m2) : '', list_price: String(unit.list_price),
+      has_balcony: unit.has_balcony, has_parking: unit.has_parking,
+      direction: unit.direction || '', notes: unit.notes || '',
+    })
+    setShowUnitForm(true)
+  }
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-      </div>
-    )
+    return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /></div>
   }
 
   return (
@@ -136,10 +222,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Projeler & Stok Yönetimi</h1>
           <p className="text-sm text-gray-500 mt-1">{projects.length} proje · {Object.values(projectStats).reduce((s, ps) => s + ps.total_units, 0)} toplam daire</p>
         </div>
-        <button
-          onClick={() => setShowNewForm(true)}
-          className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md"
-        >
+        <button onClick={() => setShowNewForm(true)} className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md">
           <Plus className="w-4 h-4" /> Yeni Proje
         </button>
       </div>
@@ -148,26 +231,17 @@ export default function ProjectsPage() {
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text" placeholder="Proje adı, kodu veya şehir ara..."
-            value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 text-sm transition outline-none"
-          />
+          <input type="text" placeholder="Proje adı, kodu veya şehir ara..." value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 text-sm transition outline-none" />
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
           className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
           <option value="all">Tüm Durumlar</option>
-          <option value="active">Aktif</option>
-          <option value="on_hold">Beklemede</option>
-          <option value="completed">Tamamlandı</option>
+          <option value="active">Aktif</option><option value="on_hold">Beklemede</option><option value="completed">Tamamlandı</option>
         </select>
         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-          <button onClick={() => setViewMode('grid')} className={`px-3 py-2.5 transition ${viewMode === 'grid' ? 'bg-primary-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button onClick={() => setViewMode('list')} className={`px-3 py-2.5 transition ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
-            <List className="w-4 h-4" />
-          </button>
+          <button onClick={() => setViewMode('grid')} className={`px-3 py-2.5 transition ${viewMode === 'grid' ? 'bg-primary-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}><LayoutGrid className="w-4 h-4" /></button>
+          <button onClick={() => setViewMode('list')} className={`px-3 py-2.5 transition ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}><List className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -205,9 +279,7 @@ export default function ProjectsPage() {
                   <StockMiniBar stats={stats} />
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50">
                     <span className="text-xs text-gray-400">{project.blocks.length} blok</span>
-                    <span className="text-xs text-primary-500 font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
-                      Detayları Gör <ChevronRight className="w-3.5 h-3.5" />
-                    </span>
+                    <span className="text-xs text-primary-500 font-medium flex items-center gap-1 group-hover:gap-2 transition-all">Detayları Gör <ChevronRight className="w-3.5 h-3.5" /></span>
                   </div>
                 </div>
               </div>
@@ -256,105 +328,186 @@ export default function ProjectsPage() {
 
       {/* ── Proje Detay Modal ── */}
       {selectedProject && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => setSelectedProject(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-y-auto animate-in" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-10 px-4" onClick={() => { setSelectedProject(null); setEditMode(false) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">{selectedProject.name}</h2>
                 <p className="text-sm text-gray-500">{selectedProject.city}{selectedProject.district ? `, ${selectedProject.district}` : ''} · {selectedProject.code}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"><Edit3 className="w-4 h-4" /></button>
-                <button onClick={() => setSelectedProject(null)} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"><X className="w-5 h-5" /></button>
+                <button onClick={() => { setEditMode(!editMode); setEditProject({ name: selectedProject.name, city: selectedProject.city || '', district: selectedProject.district || '', description: selectedProject.description || '', status: selectedProject.status, start_date: selectedProject.start_date || '', expected_end: selectedProject.expected_end || '' }) }}
+                  className={`p-2 rounded-lg hover:bg-gray-100 transition ${editMode ? 'text-primary-600 bg-primary-50' : 'text-gray-500'}`}><Edit3 className="w-4 h-4" /></button>
+                <button onClick={handleDeleteProject} disabled={deleting} className="p-2 rounded-lg hover:bg-red-50 transition text-red-500"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => { setSelectedProject(null); setEditMode(false) }} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"><X className="w-5 h-5" /></button>
               </div>
             </div>
             <div className="p-6">
-              {selectedProject.description && <p className="text-sm text-gray-600 mb-6">{selectedProject.description}</p>}
-              {/* İstatistik Kartları */}
-              {(() => {
-                const stats = getStats(selectedProject.id); return (
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                    {[
-                      { label: 'Toplam', value: stats.total_units, color: 'text-gray-900' },
-                      { label: 'Müsait', value: stats.available, color: 'text-emerald-600' },
-                      { label: 'Rezerve', value: stats.reserved, color: 'text-amber-600' },
-                      { label: 'Müzakere', value: stats.negotiation, color: 'text-blue-600' },
-                      { label: 'Satılmış', value: stats.sold, color: 'text-red-600' },
-                    ].map(stat => (
-                      <div key={stat.label} className="bg-gray-50 rounded-lg p-3 text-center">
-                        <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
-                      </div>
-                    ))}
+              {/* Düzenleme Modu */}
+              {editMode && (
+                <div className="bg-primary-50/30 border border-primary-200 rounded-lg p-4 mb-6 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-700">Proje Bilgilerini Düzenle</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-xs text-gray-500 mb-1">Proje Adı</label><input value={editProject.name || ''} onChange={e => setEditProject((p: any) => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                    <div><label className="block text-xs text-gray-500 mb-1">Durum</label>
+                      <select value={editProject.status || 'active'} onChange={e => setEditProject((p: any) => ({ ...p, status: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                        <option value="active">Aktif</option><option value="on_hold">Beklemede</option><option value="completed">Tamamlandı</option>
+                      </select>
+                    </div>
                   </div>
-                )
-              })()}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-xs text-gray-500 mb-1">Şehir</label><input value={editProject.city || ''} onChange={e => setEditProject((p: any) => ({ ...p, city: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                    <div><label className="block text-xs text-gray-500 mb-1">İlçe</label><input value={editProject.district || ''} onChange={e => setEditProject((p: any) => ({ ...p, district: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                  </div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Açıklama</label><textarea value={editProject.description || ''} onChange={e => setEditProject((p: any) => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" rows={2} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-xs text-gray-500 mb-1">Başlangıç</label><input type="date" value={editProject.start_date || ''} onChange={e => setEditProject((p: any) => ({ ...p, start_date: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                    <div><label className="block text-xs text-gray-500 mb-1">Tahmini Bitiş</label><input type="date" value={editProject.expected_end || ''} onChange={e => setEditProject((p: any) => ({ ...p, expected_end: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" /></div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setEditMode(false)} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition">İptal</button>
+                    <button disabled={saving} onClick={handleUpdateProject} className="px-4 py-1.5 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center gap-1.5">
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Kaydet
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {selectedProject.description && !editMode && <p className="text-sm text-gray-600 mb-6">{selectedProject.description}</p>}
+
+              {/* İstatistik Kartları */}
+              {(() => { const stats = getStats(selectedProject.id); return (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                  {[
+                    { label: 'Toplam', value: stats.total_units, color: 'text-gray-900' },
+                    { label: 'Müsait', value: stats.available, color: 'text-emerald-600' },
+                    { label: 'Rezerve', value: stats.reserved, color: 'text-amber-600' },
+                    { label: 'Müzakere', value: stats.negotiation, color: 'text-blue-600' },
+                    { label: 'Satılmış', value: stats.sold, color: 'text-red-600' },
+                  ].map(stat => (
+                    <div key={stat.label} className="bg-gray-50 rounded-lg p-3 text-center">
+                      <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
+              ) })()}
+
               {/* Bloklar */}
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-primary-500" /> Blok Yapısı
-                </h3>
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Building2 className="w-4 h-4 text-primary-500" /> Blok Yapısı</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {selectedProject.blocks.map(block => (
                     <div key={block.id} className="border border-gray-200 rounded-lg p-4 hover:border-primary-300 transition">
                       <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">{block.name}</p>
-                          <p className="text-xs text-gray-400">{block.total_floors || '?'} kat</p>
-                        </div>
+                        <div><p className="font-medium text-gray-900">{block.name}</p><p className="text-xs text-gray-400">{block.total_floors || '?'} kat</p></div>
                         <Building2 className="w-5 h-5 text-gray-300" />
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              {/* Daire Matrisi */}
-              {floors.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Home className="w-4 h-4 text-primary-500" /> Daire Matrisi
-                  </h3>
-                  <div className="flex items-center gap-4 mb-3 text-xs">
-                    {Object.entries(statusConfig).map(([key, cfg]) => (
-                      <span key={key} className="flex items-center gap-1.5">
-                        <span className={`w-3 h-3 rounded-sm border ${cfg.bg}`} /> {cfg.label}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="text-left text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50 rounded-tl-lg">Kat</th>
-                          {Array.from({ length: maxUnitsPerFloor }, (_, i) => (
-                            <th key={i} className="text-center text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50">Daire {i + 1}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {floors.map(floor => (
-                          <tr key={floor}>
-                            <td className="px-3 py-2 text-sm font-medium text-gray-700 border-r border-gray-100 bg-gray-50/50">{floor}. Kat</td>
-                            {(floorMap[floor] || []).map(unit => {
-                              const cfg = statusConfig[unit.status] || statusConfig.available
-                              return (
-                                <td key={unit.id} className="px-1.5 py-1.5">
-                                  <div className={`rounded-lg border p-2 text-center cursor-pointer hover:scale-105 transition-transform ${cfg.bg}`}
-                                    title={`${unit.unit_number} · ${unit.room_type} · ${unit.gross_area_m2}m² · ${formatCurrency(Number(unit.list_price))}`}>
-                                    <p className={`text-xs font-semibold ${cfg.color}`}>{unit.unit_number}</p>
-                                    <p className="text-[10px] text-gray-500">{unit.room_type} · {unit.gross_area_m2}m²</p>
-                                    <p className="text-[10px] font-medium text-gray-700 mt-0.5">{formatCurrency(Number(unit.list_price))}</p>
-                                  </div>
-                                </td>
-                              )
-                            })}
-                          </tr>
+
+              {/* Daire Matrisi + Daire Ekle */}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Home className="w-4 h-4 text-primary-500" /> Daireler</h3>
+                <button onClick={() => { setEditingUnit(false); setSelectedUnit(null); setNewUnit({ floor_number: '', unit_number: '', room_type: '2+1', gross_area_m2: '', net_area_m2: '', list_price: '', has_balcony: false, has_parking: false, direction: '', notes: '' }); setShowUnitForm(true) }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white text-xs font-medium rounded-lg transition">
+                  <Plus className="w-3.5 h-3.5" /> Daire Ekle
+                </button>
+              </div>
+
+              {/* Daire legend */}
+              <div className="flex items-center gap-4 mb-3 text-xs">
+                {Object.entries(statusConfig).map(([key, cfg]) => (
+                  <span key={key} className="flex items-center gap-1.5"><span className={`w-3 h-3 rounded-sm border ${cfg.bg}`} /> {cfg.label}</span>
+                ))}
+              </div>
+
+              {floors.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="text-left text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50 rounded-tl-lg">Kat</th>
+                        {Array.from({ length: maxUnitsPerFloor }, (_, i) => (
+                          <th key={i} className="text-center text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50">Daire {i + 1}</th>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {floors.map(floor => (
+                        <tr key={floor}>
+                          <td className="px-3 py-2 text-sm font-medium text-gray-700 border-r border-gray-100 bg-gray-50/50">{floor}. Kat</td>
+                          {(floorMap[floor] || []).map(unit => {
+                            const cfg = statusConfig[unit.status] || statusConfig.available
+                            return (
+                              <td key={unit.id} className="px-1.5 py-1.5">
+                                <div className={`rounded-lg border p-2 text-center cursor-pointer hover:scale-105 transition-transform ${cfg.bg}`}
+                                  onClick={() => openEditUnit(unit)}
+                                  title={`${unit.unit_number} · ${unit.room_type} · ${unit.gross_area_m2}m² · ${formatCurrency(Number(unit.list_price))}`}>
+                                  <p className={`text-xs font-semibold ${cfg.color}`}>{unit.unit_number}</p>
+                                  <p className="text-[10px] text-gray-500">{unit.room_type} · {unit.gross_area_m2 || '?'}m²</p>
+                                  <p className="text-[10px] font-medium text-gray-700 mt-0.5">{formatCurrency(Number(unit.list_price))}</p>
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">Henüz daire eklenmemiş. Yukarıdaki "Daire Ekle" butonunu kullanın.</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Daire Ekleme/Düzenleme Modal ── */}
+      {showUnitForm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center px-4" onClick={() => setShowUnitForm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">{editingUnit ? 'Daire Düzenle' : 'Yeni Daire Ekle'}</h2>
+              <button onClick={() => setShowUnitForm(false)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Kat *</label><input type="number" value={newUnit.floor_number} onChange={e => setNewUnit(p => ({ ...p, floor_number: e.target.value }))} disabled={editingUnit} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none disabled:bg-gray-100" placeholder="3" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Daire No *</label><input value={newUnit.unit_number} onChange={e => setNewUnit(p => ({ ...p, unit_number: e.target.value }))} disabled={editingUnit} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none disabled:bg-gray-100" placeholder="301" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Oda Tipi *</label>
+                  <select value={newUnit.room_type} onChange={e => setNewUnit(p => ({ ...p, room_type: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                    <option value="1+0">1+0</option><option value="1+1">1+1</option><option value="2+1">2+1</option>
+                    <option value="3+1">3+1</option><option value="3+2">3+2</option><option value="4+1">4+1</option>
+                    <option value="4+2">4+2</option><option value="5+1">5+1</option><option value="5+2">5+2</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Brüt m²</label><input type="number" value={newUnit.gross_area_m2} onChange={e => setNewUnit(p => ({ ...p, gross_area_m2: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" placeholder="120" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Net m²</label><input type="number" value={newUnit.net_area_m2} onChange={e => setNewUnit(p => ({ ...p, net_area_m2: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" placeholder="95" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Fiyat (TL) *</label><input type="number" value={newUnit.list_price} onChange={e => setNewUnit(p => ({ ...p, list_price: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" placeholder="3500000" /></div>
+              </div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Yön</label><input value={newUnit.direction} onChange={e => setNewUnit(p => ({ ...p, direction: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" placeholder="Güney-Batı" /></div>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={newUnit.has_balcony} onChange={e => setNewUnit(p => ({ ...p, has_balcony: e.target.checked }))} className="rounded border-gray-300 text-primary-500 focus:ring-primary-400" /> Balkon
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={newUnit.has_parking} onChange={e => setNewUnit(p => ({ ...p, has_parking: e.target.checked }))} className="rounded border-gray-300 text-primary-500 focus:ring-primary-400" /> Otopark
+                </label>
+              </div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Notlar</label><textarea value={newUnit.notes} onChange={e => setNewUnit(p => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" rows={2} placeholder="Daire hakkında notlar..." /></div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setShowUnitForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
+              <button disabled={saving || (!editingUnit && (!newUnit.floor_number || !newUnit.unit_number || !newUnit.list_price))} onClick={handleSaveUnit}
+                className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center gap-2">
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />} {editingUnit ? 'Güncelle' : 'Ekle'}
+              </button>
             </div>
           </div>
         </div>

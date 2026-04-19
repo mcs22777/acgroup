@@ -79,6 +79,16 @@ async def update_customer(customer_id: UUID, body: CustomerUpdate, db: DB, curre
     return customer
 
 
+@router.delete("/{customer_id}", status_code=204)
+async def delete_customer(customer_id: UUID, db: DB, current_user: CurrentUser):
+    result = await db.execute(select(Customer).where(Customer.id == customer_id))
+    customer = result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Müşteri bulunamadı")
+    await db.delete(customer)
+    await db.flush()
+
+
 # ── Fırsatlar ──
 
 @router.get("/opportunities/all", response_model=list[OpportunityResponse])

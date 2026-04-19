@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
   ShoppingCart, Plus, Search, Calendar, ChevronRight,
   X, CreditCard, DollarSign, Clock, CheckCircle,
-  AlertTriangle, Wallet, Filter, Loader2,
+  AlertTriangle, Wallet, Filter, Loader2, Edit3, Trash2, Save,
 } from 'lucide-react'
 import api, { ensureAuth, formatCurrency, formatDate } from '@/lib/api'
 
@@ -212,7 +212,19 @@ export default function SalesPage() {
                 <h2 className="font-bold text-gray-900">{getCustomerName(selectedSale.customer_id)}</h2>
                 <p className="text-sm text-gray-500">{getUnitInfo(selectedSale.unit_id)}</p>
               </div>
-              <button onClick={() => setSelectedSale(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-1">
+                <button disabled={saving} onClick={async () => {
+                  if (!confirm('Bu satışı silmek istediğinize emin misiniz? Daire tekrar müsait olacak.')) return
+                  setSaving(true)
+                  try {
+                    await api.delete(`/sales/${selectedSale.id}`)
+                    setSales(prev => prev.filter(s => s.id !== selectedSale.id))
+                    setUnits(prev => prev.map(u => u.id === selectedSale.unit_id ? { ...u, status: 'available' } : u))
+                    setSelectedSale(null)
+                  } catch (err: any) { alert(err?.response?.data?.detail || 'Satış silinemedi') } finally { setSaving(false) }
+                }} className="p-2 rounded-lg hover:bg-red-50 transition text-red-500"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => setSelectedSale(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              </div>
             </div>
             <div className="p-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -254,6 +266,7 @@ export default function SalesPage() {
                           <th className="text-right text-xs font-semibold text-gray-500 px-4 py-2">Tutar</th>
                           <th className="text-right text-xs font-semibold text-gray-500 px-4 py-2">Ödenen</th>
                           <th className="text-center text-xs font-semibold text-gray-500 px-4 py-2">Durum</th>
+                          <th className="text-center text-xs font-semibold text-gray-500 px-4 py-2">İşlem</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -267,6 +280,45 @@ export default function SalesPage() {
                               <td className="px-4 py-2.5 text-sm text-right text-emerald-600">{Number(inst.paid_amount) > 0 ? formatCurrency(Number(inst.paid_amount)) : '—'}</td>
                               <td className="px-4 py-2.5 text-center">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${istCfg.bg} ${istCfg.color}`}>{istCfg.label}</span>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                {inst.status !== 'paid' ? (
+                                  <button onClick={async () => {
+                                    try {
+                                      await api.patch(`/sales/${selectedSale.id}/installments/${inst.id}`, {
+                                        status: 'paid', paid_amount: Number(inst.amount),
+                                        paid_date: new Date().toISOString().split('T')[0],
+                                      })
+                                      // Taksiti lokalde güncelle
+                                      const updatedInst = selectedSale.installments.map(i =>
+                                        i.id === inst.id ? { ...i, status: 'paid', paid_amount: Number(i.amount), paid_date: new Date().toISOString().split('T')[0] } : i
+                                      )
+                                      const newRemaining = Math.max(0, Number(selectedSale.remaining_debt) - Number(inst.amount) + Number(inst.paid_amount))
+                                      const updatedSale = { ...selectedSale, installments: updatedInst, remaining_debt: newRemaining }
+                                      setSelectedSale(updatedSale)
+                                      setSales(prev => prev.map(s => s.id === selectedSale.id ? updatedSale : s))
+                                    } catch (err: any) { alert(err?.response?.data?.detail || 'Taksit güncellenemedi') }
+                                  }} className="px-2 py-1 text-[10px] font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded transition">
+                                    Ödendi
+                                  </button>
+                                ) : (
+                                  <button onClick={async () => {
+                                    try {
+                                      await api.patch(`/sales/${selectedSale.id}/installments/${inst.id}`, {
+                                        status: 'pending', paid_amount: 0, paid_date: null,
+                                      })
+                                      const updatedInst = selectedSale.installments.map(i =>
+                                        i.id === inst.id ? { ...i, status: 'pending', paid_amount: 0, paid_date: null } : i
+                                      )
+                                      const newRemaining = Number(selectedSale.remaining_debt) + Number(inst.amount)
+                                      const updatedSale = { ...selectedSale, installments: updatedInst, remaining_debt: newRemaining }
+                                      setSelectedSale(updatedSale)
+                                      setSales(prev => prev.map(s => s.id === selectedSale.id ? updatedSale : s))
+                                    } catch (err: any) { alert(err?.response?.data?.detail || 'Taksit güncellenemedi') }
+                                  }} className="px-2 py-1 text-[10px] font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition">
+                                    İptal Et
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           )

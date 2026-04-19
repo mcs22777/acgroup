@@ -131,6 +131,37 @@ async def get_sale(sale_id: UUID, db: DB, current_user: CurrentUser):
     return sale
 
 
+@router.put("/{sale_id}", response_model=SaleResponse)
+async def update_sale(sale_id: UUID, body: dict, db: DB, current_user: CurrentUser):
+    result = await db.execute(select(Sale).where(Sale.id == sale_id))
+    sale = result.scalar_one_or_none()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Satış bulunamadı")
+    allowed = {"sale_price", "down_payment", "notes", "status"}
+    for key, value in body.items():
+        if key in allowed:
+            if key in ("sale_price", "down_payment"):
+                value = Decimal(str(value))
+            setattr(sale, key, value)
+    await db.flush()
+    await db.refresh(sale, ["installments"])
+    return sale
+
+
+@router.delete("/{sale_id}", status_code=204)
+async def delete_sale(sale_id: UUID, db: DB, current_user: CurrentUser):
+    result = await db.execute(select(Sale).where(Sale.id == sale_id))
+    sale = result.scalar_one_or_none()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Satış bulunamadı")
+    unit_result = await db.execute(select(Unit).where(Unit.id == sale.unit_id))
+    unit = unit_result.scalar_one_or_none()
+    if unit:
+        unit.status = "available"
+    await db.delete(sale)
+    await db.flush()
+
+
 @router.get("/{sale_id}/installments", response_model=list[InstallmentResponse])
 async def get_sale_installments(sale_id: UUID, db: DB, current_user: CurrentUser):
     result = await db.execute(
@@ -139,6 +170,39 @@ async def get_sale_installments(sale_id: UUID, db: DB, current_user: CurrentUser
         .order_by(Installment.installment_no)
     )
     return result.scalars().all()
+
+
+@router.patch("/{sale_id}/installments/{installment_id}")
+async def update_installment(
+    sale_id: UUID, installment_id: UUID, body: dict, db: DB, current_user: CurrentUser
+):
+    result = await db.execute(
+        select(Installment).where(
+            Installment.id == installment_id,
+            Installment.sale_id == sale_id,
+        )
+    )
+    inst = result.scalar_one_or_none()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Taksit bulunamadı")
+
+    allowed_fields = {"due_date", "amount", "status", "paid_amount", "paid_date", "notes"}
+    for key, value in body.items():
+        if key in allowed_fields:
+            if key in ("due_date", "paid_date") and value:
+                value = date.fromisoformat(value)
+            if key in ("amount", "paid_amount") and value is not None:
+                value = Decimal(str(value))
+            setattr(inst, key, value)
+
+    await db.flush()
+    return {
+        "id": str(inst.id), "sale_id": str(inst.sale_id),
+        "installment_no": inst.installment_no, "due_date": str(inst.due_date),
+        "amount": float(inst.amount), "paid_amount": float(inst.paid_amount),
+        "paid_date": str(inst.paid_date) if inst.paid_date else None,
+        "status": inst.status, "notes": inst.notes,
+    }
 
 
 @router.get("/{sale_id}/payments", response_model=list[PaymentResponse])
