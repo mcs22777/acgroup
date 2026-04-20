@@ -83,7 +83,7 @@ engine = create_engine(url)
 inspector = inspect(engine)
 tables = inspector.get_table_names()
 engine.dispose()
-required = ['users', 'projects', 'blocks', 'units', 'customers', 'sales', 'installments', 'payments']
+required = ['users', 'projects', 'blocks', 'units', 'customers', 'sales', 'installments', 'payments', 'expenses', 'suppliers', 'expense_installments']
 missing = [t for t in required if t not in tables]
 if missing:
     print(f'  ❌ Eksik tablolar: {missing}')

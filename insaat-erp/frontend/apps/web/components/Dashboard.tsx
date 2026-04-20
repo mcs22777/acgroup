@@ -10,8 +10,8 @@ import api, { ensureAuth, formatCurrency } from '@/lib/api'
 interface DashboardData {
   stock: { total_units: number; available: number; reserved: number; negotiation: number; sold: number }
   project_stocks: { project_id: string; project_name: string; project_code: string; total_units: number; available: number; reserved: number; negotiation: number; sold: number }[]
-  financial: { expected_this_month: number; collected_this_month: number; overdue_total: number; total_receivable: number; expenses_this_month: number }
-  crm: { total_customers: number; open_opportunities: number; new_this_week: number; won_this_month: number }
+  financial: { expected_this_month: number; collected_this_month: number; overdue_total: number; total_receivable: number; expenses_this_month: number; expenses_paid_this_month: number }
+  crm: { total_customers: number; open_opportunities: number; new_this_week: number; won_this_month: number; lost_this_month: number }
   overdue_payments: { sale_id: string; customer_name: string; unit_info: string; installment_no: number; due_date: string; amount: number; paid_amount: number; overdue_amount: number }[]
   upcoming_expenses: { expense_id: string; supplier_name: string | null; description: string; amount: number; due_date: string; status: string }[]
 }
@@ -192,9 +192,13 @@ export default function Dashboard() {
               <span className="text-sm text-gray-500">Geciken</span>
               <span className="font-semibold text-red-500">{formatCurrency(Number(data.financial.overdue_total))}</span>
             </div>
-            <div className="flex justify-between items-center py-2">
+            <div className="flex justify-between items-center py-2 border-b border-gray-50">
               <span className="text-sm text-gray-500">Bu Ay Giderler</span>
               <span className="font-semibold text-orange-600">{formatCurrency(Number(data.financial.expenses_this_month))}</span>
+            </div>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-sm text-gray-500">Ödenen Giderler</span>
+              <span className="font-semibold text-green-600">{formatCurrency(Number(data.financial.expenses_paid_this_month))}</span>
             </div>
           </div>
           {/* Tahsilat Progress */}
@@ -263,7 +267,7 @@ export default function Dashboard() {
 
       {/* CRM Özet Bandı */}
       <div className="mt-6 bg-primary-500 rounded-xl p-5 text-white shadow-sm">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="text-center">
             <p className="text-3xl font-bold">{data.crm.total_customers}</p>
             <p className="text-sm text-primary-200 mt-1">Toplam Müşteri</p>
@@ -278,7 +282,11 @@ export default function Dashboard() {
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold">{data.crm.won_this_month}</p>
-            <p className="text-sm text-primary-200 mt-1">Bu Ay Satışa Dönen</p>
+            <p className="text-sm text-primary-200 mt-1">Bu Ay Kazanılan</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-bold">{data.crm.lost_this_month}</p>
+            <p className="text-sm text-primary-200 mt-1">Bu Ay Kaybedilen</p>
           </div>
         </div>
       </div>

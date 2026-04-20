@@ -10,11 +10,28 @@ class BlockCreate(BaseModel):
     total_floors: int | None = None
 
 
+class UnitBrief(BaseModel):
+    id: UUID
+    floor_number: int
+    unit_number: str
+    room_type: str
+    gross_area_m2: float | None = None
+    net_area_m2: float | None = None
+    list_price: float
+    status: str
+    has_balcony: bool = False
+    has_parking: bool = False
+    direction: str | None = None
+    notes: str | None = None
+    model_config = {"from_attributes": True}
+
+
 class BlockResponse(BaseModel):
     id: UUID
     project_id: UUID
     name: str
     total_floors: int | None
+    units: list[UnitBrief] = []
     model_config = {"from_attributes": True}
 
 

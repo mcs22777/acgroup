@@ -12,11 +12,12 @@ import api, { ensureAuth, formatDate } from '@/lib/api'
 interface Customer {
   id: string; first_name: string; last_name: string; phone: string; email: string | null;
   source: string | null; assigned_to: string | null; notes: string | null;
-  tc_kimlik_no?: string | null; created_at?: string;
+  tc_kimlik_no?: string | null; address?: string | null; created_at?: string;
 }
 interface Opportunity {
   id: string; customer_id: string; project_id: string | null; unit_id: string | null;
   offered_price: number | null; status: string; priority: string; expected_close: string | null;
+  notes: string | null; loss_reason: string | null;
 }
 interface Activity {
   id: string; customer_id: string; user_id: string; activity_type: string;
@@ -37,6 +38,7 @@ const kanbanColumns = [
   { id: 'proposal_sent', label: 'Teklif Verildi', color: 'border-amber-400', bg: 'bg-amber-50' },
   { id: 'negotiation', label: 'Müzakere', color: 'border-purple-400', bg: 'bg-purple-50' },
   { id: 'won', label: 'Kazanıldı', color: 'border-emerald-400', bg: 'bg-emerald-50' },
+  { id: 'lost', label: 'Kaybedildi', color: 'border-red-400', bg: 'bg-red-50' },
 ]
 
 const priorityColors: Record<string, string> = {
@@ -68,7 +70,7 @@ export default function CustomersPage() {
   const [saving, setSaving] = useState(false)
   const [newCustomer, setNewCustomer] = useState({
     first_name: '', last_name: '', phone: '', email: '',
-    source: 'web', tc_kimlik_no: '', notes: '',
+    source: 'web', tc_kimlik_no: '', address: '', notes: '',
   })
 
   // Not ekleme state
@@ -95,6 +97,11 @@ export default function CustomersPage() {
   const [editMode, setEditMode] = useState(false)
   const [editCustomer, setEditCustomer] = useState<any>({})
   const [deleting, setDeleting] = useState(false)
+
+  // Fırsat düzenleme state (Kanban)
+  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [editOpp, setEditOpp] = useState<any>({})
+  const [oppSaving, setOppSaving] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -263,14 +270,27 @@ export default function CustomersPage() {
                 </div>
                 <div className="bg-gray-50/50 rounded-b-lg p-2 space-y-2 min-h-[200px]">
                   {colOpps.map(opp => (
-                    <div key={opp.id} className="bg-white rounded-lg border border-gray-100 p-3 shadow-sm hover:shadow-md transition cursor-pointer">
+                    <div key={opp.id}
+                      onClick={() => {
+                        setSelectedOpp(opp)
+                        setEditOpp({
+                          status: opp.status,
+                          priority: opp.priority,
+                          offered_price: opp.offered_price ? String(opp.offered_price) : '',
+                          expected_close: opp.expected_close || '',
+                          notes: opp.notes || '',
+                          loss_reason: opp.loss_reason || '',
+                        })
+                      }}
+                      className="bg-white rounded-lg border border-gray-100 p-3 shadow-sm hover:shadow-md hover:border-primary-200 transition cursor-pointer group">
                       <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm font-medium text-gray-900">{getCustomerName(opp.customer_id)}</p>
+                        <p className="text-sm font-medium text-gray-900 group-hover:text-primary-600 transition">{getCustomerName(opp.customer_id)}</p>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${priorityColors[opp.priority] || ''}`}>
                           {opp.priority === 'high' ? 'Yüksek' : opp.priority === 'medium' ? 'Orta' : 'Düşük'}
                         </span>
                       </div>
                       {opp.offered_price && <p className="text-sm font-semibold text-primary-600">{formatCurrency(Number(opp.offered_price))}</p>}
+                      {opp.notes && <p className="text-[10px] text-gray-400 mt-1 line-clamp-1">{opp.notes}</p>}
                       {opp.expected_close && (
                         <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-2">
                           <Calendar className="w-3 h-3" /> Hedef: {formatDate(opp.expected_close)}
@@ -282,6 +302,102 @@ export default function CustomersPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ── Fırsat Düzenleme Modal ── */}
+      {selectedOpp && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => setSelectedOpp(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Fırsat Düzenle</h2>
+                <p className="text-sm text-gray-500">{getCustomerName(selectedOpp.customer_id)}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button disabled={deleting} onClick={async () => {
+                  if (!confirm('Bu fırsatı silmek istediğinize emin misiniz?')) return
+                  setDeleting(true)
+                  try {
+                    await api.delete(`/customers/opportunities/${selectedOpp.id}`)
+                    setOpportunities(prev => prev.filter(o => o.id !== selectedOpp.id))
+                    setSelectedOpp(null)
+                  } catch (err: any) { alert(err?.response?.data?.detail || 'Fırsat silinemedi') }
+                  finally { setDeleting(false) }
+                }} className="p-2 rounded-lg hover:bg-red-50 transition text-red-500"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => setSelectedOpp(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Durum */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Durum</label>
+                <div className="flex flex-wrap gap-2">
+                  {kanbanColumns.map(col => (
+                    <button key={col.id} onClick={() => setEditOpp((p: any) => ({ ...p, status: col.id }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        editOpp.status === col.id
+                          ? `${col.bg} ${col.color} border-current shadow-sm`
+                          : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}>
+                      {col.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Öncelik */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Öncelik</label>
+                <select value={editOpp.priority || 'medium'} onChange={e => setEditOpp((p: any) => ({ ...p, priority: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none bg-white">
+                  <option value="high">Yüksek</option><option value="medium">Orta</option><option value="low">Düşük</option>
+                </select>
+              </div>
+              {/* Fiyat & Tarih */}
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Teklif Fiyatı (TL)</label>
+                  <input type="number" value={editOpp.offered_price || ''} onChange={e => setEditOpp((p: any) => ({ ...p, offered_price: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" placeholder="3500000" />
+                </div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Hedef Kapanış</label>
+                  <input type="date" value={editOpp.expected_close || ''} onChange={e => setEditOpp((p: any) => ({ ...p, expected_close: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+                </div>
+              </div>
+              {/* Notlar */}
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Notlar</label>
+                <textarea value={editOpp.notes || ''} onChange={e => setEditOpp((p: any) => ({ ...p, notes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" rows={2} placeholder="Fırsat hakkında notlar..." />
+              </div>
+              {/* Kayıp Sebebi — sadece lost durumunda */}
+              {editOpp.status === 'lost' && (
+                <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Kayıp Sebebi</label>
+                  <input value={editOpp.loss_reason || ''} onChange={e => setEditOpp((p: any) => ({ ...p, loss_reason: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" placeholder="Fiyat uyuşmazlığı, rakip firma..." />
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setSelectedOpp(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">İptal</button>
+              <button disabled={oppSaving} onClick={async () => {
+                setOppSaving(true)
+                try {
+                  const payload: any = { status: editOpp.status, priority: editOpp.priority }
+                  if (editOpp.offered_price) payload.offered_price = Number(editOpp.offered_price)
+                  else payload.offered_price = null
+                  if (editOpp.expected_close) payload.expected_close = editOpp.expected_close
+                  if (editOpp.notes !== undefined) payload.notes = editOpp.notes || null
+                  if (editOpp.status === 'lost' && editOpp.loss_reason) payload.loss_reason = editOpp.loss_reason
+                  const res = await api.put(`/customers/opportunities/${selectedOpp.id}`, payload)
+                  setOpportunities(prev => prev.map(o => o.id === selectedOpp.id ? res.data : o))
+                  setSelectedOpp(null)
+                } catch (err: any) { alert(err?.response?.data?.detail || 'Fırsat güncellenemedi') }
+                finally { setOppSaving(false) }
+              }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center gap-2">
+                {oppSaving && <Loader2 className="w-4 h-4 animate-spin" />} Kaydet
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -336,7 +452,7 @@ export default function CustomersPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => { setEditMode(!editMode); setEditCustomer({ first_name: selectedCustomer.first_name, last_name: selectedCustomer.last_name, phone: selectedCustomer.phone, email: selectedCustomer.email || '', source: selectedCustomer.source || 'web', notes: selectedCustomer.notes || '' }) }}
+                <button onClick={() => { setEditMode(!editMode); setEditCustomer({ first_name: selectedCustomer.first_name, last_name: selectedCustomer.last_name, phone: selectedCustomer.phone, email: selectedCustomer.email || '', source: selectedCustomer.source || 'web', address: selectedCustomer.address || '', notes: selectedCustomer.notes || '' }) }}
                   className={`p-2 rounded-lg hover:bg-gray-100 transition ${editMode ? 'text-primary-600 bg-primary-50' : 'text-gray-500'}`}><Edit3 className="w-4 h-4" /></button>
                 <button disabled={deleting} onClick={async () => {
                   if (!confirm('Bu müşteriyi silmek istediğinize emin misiniz?')) return
@@ -368,6 +484,7 @@ export default function CustomersPage() {
                       <option value="web">Web</option><option value="referral">Referans</option><option value="walk_in">Ziyaret</option><option value="phone">Telefon</option><option value="ad">Reklam</option>
                     </select>
                   </div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Adres</label><textarea value={editCustomer.address || ''} onChange={e => setEditCustomer((p: any) => ({ ...p, address: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" rows={2} /></div>
                   <div><label className="block text-xs text-gray-500 mb-1">Notlar</label><textarea value={editCustomer.notes || ''} onChange={e => setEditCustomer((p: any) => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" rows={2} /></div>
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setEditMode(false)} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition">İptal</button>
@@ -397,6 +514,16 @@ export default function CustomersPage() {
                   })()}
                 </div>
               </div>
+              {(selectedCustomer.tc_kimlik_no || selectedCustomer.address) && (
+                <div className="grid grid-cols-1 gap-4">
+                  {selectedCustomer.tc_kimlik_no && (
+                    <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500 mb-1">TC Kimlik No</p><p className="text-sm font-medium text-gray-900">{selectedCustomer.tc_kimlik_no}</p></div>
+                  )}
+                  {selectedCustomer.address && (
+                    <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500 mb-1">Adres</p><p className="text-sm text-gray-700">{selectedCustomer.address}</p></div>
+                  )}
+                </div>
+              )}
               {selectedCustomer.notes && (
                 <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
                   <p className="text-xs text-amber-600 font-medium mb-1">Notlar</p>
@@ -503,6 +630,7 @@ export default function CustomersPage() {
                 </div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1.5">TC Kimlik No</label><input value={newCustomer.tc_kimlik_no} onChange={e => setNewCustomer(p => ({ ...p, tc_kimlik_no: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="12345678901" /></div>
               </div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Adres</label><textarea value={newCustomer.address} onChange={e => setNewCustomer(p => ({ ...p, address: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={2} placeholder="Müşteri adresi..." /></div>
               <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Notlar</label><textarea value={newCustomer.notes} onChange={e => setNewCustomer(p => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={2} placeholder="Müşteri ile ilgili notlar..." /></div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
@@ -513,10 +641,11 @@ export default function CustomersPage() {
                   const payload: any = { first_name: newCustomer.first_name, last_name: newCustomer.last_name, phone: newCustomer.phone, source: newCustomer.source }
                   if (newCustomer.email) payload.email = newCustomer.email
                   if (newCustomer.tc_kimlik_no) payload.tc_kimlik_no = newCustomer.tc_kimlik_no
+                  if (newCustomer.address) payload.address = newCustomer.address
                   if (newCustomer.notes) payload.notes = newCustomer.notes
                   const res = await api.post('/customers', payload)
                   setCustomers(prev => [res.data, ...prev])
-                  setNewCustomer({ first_name: '', last_name: '', phone: '', email: '', source: 'web', tc_kimlik_no: '', notes: '' })
+                  setNewCustomer({ first_name: '', last_name: '', phone: '', email: '', source: 'web', tc_kimlik_no: '', address: '', notes: '' })
                   setShowNewForm(false)
                 } catch (err: any) { alert(err?.response?.data?.detail || 'Müşteri eklenemedi') } finally { setSaving(false) }
               }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">

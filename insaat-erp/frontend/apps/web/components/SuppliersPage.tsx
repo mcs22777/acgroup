@@ -9,8 +9,8 @@ import api, { ensureAuth } from '@/lib/api'
 
 interface Supplier {
   id: string; name: string; contact_person: string | null; phone: string | null;
-  email: string | null; tax_number: string | null; category: string | null;
-  notes: string | null
+  email: string | null; tax_number: string | null; address: string | null;
+  category: string | null; notes: string | null
 }
 
 const categoryConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -31,7 +31,7 @@ export default function SuppliersPage() {
   const [saving, setSaving] = useState(false)
   const [newSupplier, setNewSupplier] = useState({
     name: '', contact_person: '', phone: '', email: '',
-    tax_number: '', category: 'malzeme', notes: '',
+    tax_number: '', category: 'malzeme', address: '', notes: '',
   })
   const [editMode, setEditMode] = useState(false)
   const [editSupplier, setEditSupplier] = useState<any>({})
@@ -149,7 +149,7 @@ export default function SuppliersPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => { setEditMode(!editMode); setEditSupplier({ name: selectedSupplier.name, contact_person: selectedSupplier.contact_person || '', phone: selectedSupplier.phone || '', email: selectedSupplier.email || '', tax_number: selectedSupplier.tax_number || '', category: selectedSupplier.category || 'malzeme', notes: selectedSupplier.notes || '' }) }}
+                <button onClick={() => { setEditMode(!editMode); setEditSupplier({ name: selectedSupplier.name, contact_person: selectedSupplier.contact_person || '', phone: selectedSupplier.phone || '', email: selectedSupplier.email || '', tax_number: selectedSupplier.tax_number || '', category: selectedSupplier.category || 'malzeme', address: selectedSupplier.address || '', notes: selectedSupplier.notes || '' }) }}
                   className={`p-2 rounded-lg hover:bg-gray-100 transition ${editMode ? 'text-primary-600 bg-primary-50' : 'text-gray-500'}`}><Edit3 className="w-4 h-4" /></button>
                 <button disabled={deleting} onClick={async () => {
                   if (!confirm('Bu tedarikçiyi silmek istediğinize emin misiniz?')) return
@@ -181,6 +181,7 @@ export default function SuppliersPage() {
                     <div><label className="block text-xs text-gray-500 mb-1">E-posta</label><input value={editSupplier.email || ''} onChange={e => setEditSupplier((p: any) => ({ ...p, email: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none" /></div>
                   </div>
                   <div><label className="block text-xs text-gray-500 mb-1">Vergi No</label><input value={editSupplier.tax_number || ''} onChange={e => setEditSupplier((p: any) => ({ ...p, tax_number: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none" /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">Adres</label><textarea value={editSupplier.address || ''} onChange={e => setEditSupplier((p: any) => ({ ...p, address: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none resize-none" rows={2} /></div>
                   <div><label className="block text-xs text-gray-500 mb-1">Notlar</label><textarea value={editSupplier.notes || ''} onChange={e => setEditSupplier((p: any) => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none resize-none" rows={2} /></div>
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setEditMode(false)} className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition">İptal</button>
@@ -210,6 +211,12 @@ export default function SuppliersPage() {
                   })()}
                 </div>
               </div>
+              {selectedSupplier.address && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Adres</p>
+                  <p className="text-sm text-gray-700">{selectedSupplier.address}</p>
+                </div>
+              )}
               {selectedSupplier.notes && (
                 <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
                   <p className="text-xs text-amber-600 font-medium mb-1">Notlar</p>
@@ -246,6 +253,7 @@ export default function SuppliersPage() {
                 <div><label className="block text-xs font-medium text-gray-600 mb-1.5">E-posta</label><input value={newSupplier.email} onChange={e => setNewSupplier(p => ({ ...p, email: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="info@firma.com" /></div>
               </div>
               <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Vergi Numarası</label><input value={newSupplier.tax_number} onChange={e => setNewSupplier(p => ({ ...p, tax_number: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition" placeholder="1234567890" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Adres</label><textarea value={newSupplier.address} onChange={e => setNewSupplier(p => ({ ...p, address: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={2} placeholder="Firma adresi..." /></div>
               <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Notlar</label><textarea value={newSupplier.notes} onChange={e => setNewSupplier(p => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition resize-none" rows={2} placeholder="Tedarikçi hakkında notlar..." /></div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
@@ -259,10 +267,11 @@ export default function SuppliersPage() {
                   if (newSupplier.email) payload.email = newSupplier.email
                   if (newSupplier.tax_number) payload.tax_number = newSupplier.tax_number
                   if (newSupplier.category) payload.category = newSupplier.category
+                  if (newSupplier.address) payload.address = newSupplier.address
                   if (newSupplier.notes) payload.notes = newSupplier.notes
                   const res = await api.post('/expenses/suppliers', payload)
                   setSuppliers(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)))
-                  setNewSupplier({ name: '', contact_person: '', phone: '', email: '', tax_number: '', category: 'malzeme', notes: '' })
+                  setNewSupplier({ name: '', contact_person: '', phone: '', email: '', tax_number: '', category: 'malzeme', address: '', notes: '' })
                   setShowNewForm(false)
                 } catch (err: any) { alert(err?.response?.data?.detail || 'Tedarikçi eklenemedi') } finally { setSaving(false) }
               }} className="px-5 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md flex items-center gap-2">

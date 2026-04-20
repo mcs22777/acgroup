@@ -86,7 +86,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
-        sa.ForeignKeyConstraint(['block_id'], ['blocks.id']),
+        sa.ForeignKeyConstraint(['block_id'], ['blocks.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['project_id'], ['projects.id']),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('project_id', 'block_id', 'floor_number', 'unit_number', name='uq_unit_identity'),

@@ -107,12 +107,23 @@ async def get_dashboard(db: DB, current_user: CurrentUser):
     )
     expenses_this_month = exp_q.scalar() or Decimal("0")
 
+    # Bu ay ödenen firma giderleri
+    exp_paid_q = await db.execute(
+        select(func.coalesce(func.sum(Expense.paid_amount), 0))
+        .where(
+            Expense.paid_date.between(month_start, month_end),
+            Expense.status.in_(["paid", "partial"]),
+        )
+    )
+    expenses_paid_this_month = exp_paid_q.scalar() or Decimal("0")
+
     financial = FinancialSummary(
         expected_this_month=expected_this_month,
         collected_this_month=collected_this_month,
         overdue_total=overdue_total,
         total_receivable=total_receivable,
         expenses_this_month=expenses_this_month,
+        expenses_paid_this_month=expenses_paid_this_month,
     )
 
     # ── CRM Özeti ──
@@ -137,11 +148,18 @@ async def get_dashboard(db: DB, current_user: CurrentUser):
     )
     won_this_month = won_month_q.scalar() or 0
 
+    lost_month_q = await db.execute(
+        select(func.count(Opportunity.id))
+        .where(Opportunity.status == "lost", Opportunity.updated_at >= month_start)
+    )
+    lost_this_month = lost_month_q.scalar() or 0
+
     crm = CRMSummary(
         total_customers=total_customers,
         open_opportunities=open_opportunities,
         new_this_week=new_this_week,
         won_this_month=won_this_month,
+        lost_this_month=lost_this_month,
     )
 
     # ── Geciken Ödemeler Listesi ──

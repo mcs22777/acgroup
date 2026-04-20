@@ -19,7 +19,7 @@ class Unit(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True
     )
     block_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("blocks.id")
+        UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE")
     )
     floor_number: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_number: Mapped[str] = mapped_column(String(20), nullable=False)

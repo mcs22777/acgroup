@@ -40,4 +40,4 @@ class Block(Base, UUIDMixin, TimestampMixin):
 
     # İlişkiler
     project = relationship("Project", back_populates="blocks")
-    units = relationship("Unit", back_populates="block", lazy="selectin")
+    units = relationship("Unit", back_populates="block", cascade="all, delete-orphan", lazy="selectin")

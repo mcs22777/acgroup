@@ -140,6 +140,16 @@ async def update_opportunity(opp_id: UUID, body: OpportunityUpdate, db: DB, curr
     return opp
 
 
+@router.delete("/opportunities/{opp_id}", status_code=204)
+async def delete_opportunity(opp_id: UUID, db: DB, current_user: CurrentUser):
+    result = await db.execute(select(Opportunity).where(Opportunity.id == opp_id))
+    opp = result.scalar_one_or_none()
+    if not opp:
+        raise HTTPException(status_code=404, detail="Fırsat bulunamadı")
+    await db.delete(opp)
+    await db.flush()
+
+
 # ── Aktiviteler ──
 
 @router.get("/{customer_id}/activities", response_model=list[ActivityResponse])

@@ -27,6 +27,7 @@ class InstallmentResponse(BaseModel):
     paid_amount: Decimal
     paid_date: date | None
     status: str
+    notes: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -35,6 +36,7 @@ class SaleResponse(BaseModel):
     id: UUID
     unit_id: UUID
     customer_id: UUID
+    opportunity_id: UUID | None = None
     sale_date: date
     sale_price: Decimal
     down_payment: Decimal

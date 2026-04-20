@@ -117,3 +117,31 @@ async def create_block(project_id: UUID, body: BlockCreate, db: DB, current_user
     db.add(block)
     await db.flush()
     return block
+
+
+@router.put("/{project_id}/blocks/{block_id}", response_model=BlockResponse)
+async def update_block(project_id: UUID, block_id: UUID, body: dict, db: DB, current_user: CurrentUser):
+    result = await db.execute(
+        select(Block).where(Block.id == block_id, Block.project_id == project_id)
+    )
+    block = result.scalar_one_or_none()
+    if not block:
+        raise HTTPException(status_code=404, detail="Blok bulunamadı")
+    allowed = {"name", "total_floors"}
+    for key, value in body.items():
+        if key in allowed:
+            setattr(block, key, value)
+    await db.flush()
+    return block
+
+
+@router.delete("/{project_id}/blocks/{block_id}", status_code=204)
+async def delete_block(project_id: UUID, block_id: UUID, db: DB, current_user: CurrentUser):
+    result = await db.execute(
+        select(Block).where(Block.id == block_id, Block.project_id == project_id)
+    )
+    block = result.scalar_one_or_none()
+    if not block:
+        raise HTTPException(status_code=404, detail="Blok bulunamadı")
+    await db.delete(block)
+    await db.flush()

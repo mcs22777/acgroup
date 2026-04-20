@@ -25,6 +25,7 @@ class CustomerUpdate(BaseModel):
     phone: str | None = None
     phone_secondary: str | None = None
     email: str | None = None
+    tc_kimlik_no: str | None = None
     address: str | None = None
     source: str | None = None
     notes: str | None = None
@@ -38,6 +39,8 @@ class CustomerResponse(BaseModel):
     phone: str
     phone_secondary: str | None
     email: str | None
+    tc_kimlik_no: str | None
+    address: str | None
     source: str | None
     notes: str | None
     assigned_to: UUID | None

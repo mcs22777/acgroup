@@ -127,3 +127,13 @@ async def update_unit_status(unit_id: UUID, body: UnitStatusUpdate, db: DB, curr
         unit.notes = body.notes
     await db.flush()
     return unit
+
+
+@router.delete("/{unit_id}", status_code=204)
+async def delete_unit(unit_id: UUID, db: DB, current_user: CurrentUser):
+    result = await db.execute(select(Unit).where(Unit.id == unit_id))
+    unit = result.scalar_one_or_none()
+    if not unit:
+        raise HTTPException(status_code=404, detail="Daire bulunamadı")
+    await db.delete(unit)
+    await db.flush()

@@ -24,6 +24,7 @@ class SupplierResponse(BaseModel):
     phone: str | None
     email: str | None
     tax_number: str | None
+    address: str | None
     category: str | None
     notes: str | None
 

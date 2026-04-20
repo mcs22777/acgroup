@@ -26,7 +26,6 @@ def table_has_data(session, table_name: str) -> bool:
 
 def seed():
     with Session(engine) as session:
-        # Eğer users tablosunda veri varsa seed yapma
         try:
             if table_has_data(session, "users"):
                 print("✅ Veritabanında zaten veri var, seed atlanıyor.")
@@ -68,47 +67,43 @@ def seed():
         proj1_id = uuid.uuid4()
         proj2_id = uuid.uuid4()
         proj3_id = uuid.uuid4()
-        proj4_id = uuid.uuid4()
 
         projects = [
-            {"id": str(proj1_id), "name": "Park Evler Konutları", "code": "PARK-EVLER",
-             "city": "İstanbul", "district": "Başakşehir",
-             "description": "Modern mimari ile tasarlanmış 3 blok, 120 daireden oluşan prestijli konut projesi.",
-             "total_units": 40, "status": "active",
-             "start_date": "2025-06-01", "expected_end": "2027-03-01"},
-            {"id": str(proj2_id), "name": "Deniz Konakları", "code": "DENIZ-KONAK",
-             "city": "İzmir", "district": "Karşıyaka",
-             "description": "Deniz manzaralı, premium kalite malzemelerle inşa edilen lüks konut projesi.",
-             "total_units": 60, "status": "active",
-             "start_date": "2025-09-15", "expected_end": "2027-06-01"},
-            {"id": str(proj3_id), "name": "Yeşil Vadi Rezidans", "code": "YESIL-VADI",
+            {"id": str(proj1_id), "name": "AC Towers", "code": "AC-TOWERS",
+             "city": "İstanbul", "district": "Ataşehir",
+             "description": "Ataşehir merkezde 2 bloktan oluşan modern konut projesi. Sosyal tesisleri ve kapalı otoparkı ile konforlu bir yaşam sunuyor.",
+             "total_units": 0, "status": "active",
+             "start_date": "2025-09-01", "expected_end": "2027-06-01"},
+            {"id": str(proj2_id), "name": "AC Garden", "code": "AC-GARDEN",
+             "city": "Antalya", "district": "Konyaaltı",
+             "description": "Konyaaltı sahiline yürüme mesafesinde, bahçeli ve havuzlu rezidans projesi.",
+             "total_units": 0, "status": "active",
+             "start_date": "2026-01-15", "expected_end": "2028-01-01"},
+            {"id": str(proj3_id), "name": "AC Plaza", "code": "AC-PLAZA",
              "city": "Ankara", "district": "Çankaya",
-             "description": "Yeşillikler içinde, doğayla iç içe bir yaşam sunan butik proje.",
-             "total_units": 20, "status": "on_hold",
-             "start_date": "2026-01-10", "expected_end": "2028-01-01"},
-            {"id": str(proj4_id), "name": "Mavi Göl Evleri", "code": "MAVI-GOL",
-             "city": "Bolu", "district": "Merkez",
-             "description": "Göl kenarında, doğal yaşamı ön planda tutan villa ve daire karma projesi.",
-             "total_units": 30, "status": "completed",
-             "start_date": "2024-03-01", "expected_end": "2025-12-01"},
+             "description": "Çankaya'da karma kullanımlı proje. Alt katlar ticari, üst katlar konut.",
+             "total_units": 0, "status": "on_hold",
+             "start_date": "2026-06-01", "expected_end": "2028-12-01"},
         ]
         for p in projects:
             session.execute(text("""
                 INSERT INTO projects (id, name, code, city, district, description, total_units, status, start_date, expected_end, created_at, updated_at)
                 VALUES (:id, :name, :code, :city, :district, :description, :total_units, :status, :start_date, :expected_end, now(), now())
             """), p)
-        print("  ✅ 4 proje eklendi")
+        print("  ✅ 3 proje eklendi")
 
         # ── Bloklar ──
         block_ids = {}
         blocks = [
-            {"name": "A Blok", "project_id": str(proj1_id), "total_floors": 10},
-            {"name": "B Blok", "project_id": str(proj1_id), "total_floors": 8},
-            {"name": "A Blok", "project_id": str(proj2_id), "total_floors": 12},
-            {"name": "B Blok", "project_id": str(proj2_id), "total_floors": 6},
-            {"name": "Tek Blok", "project_id": str(proj3_id), "total_floors": 5},
-            {"name": "A Blok", "project_id": str(proj4_id), "total_floors": 5},
-            {"name": "Villa Bölgesi", "project_id": str(proj4_id), "total_floors": 2},
+            # AC Towers — 2 blok
+            {"name": "A Blok", "project_id": str(proj1_id), "total_floors": 8},
+            {"name": "B Blok", "project_id": str(proj1_id), "total_floors": 6},
+            # AC Garden — 3 blok
+            {"name": "Palmiye Blok", "project_id": str(proj2_id), "total_floors": 5},
+            {"name": "Zeytin Blok", "project_id": str(proj2_id), "total_floors": 5},
+            {"name": "Çınar Blok", "project_id": str(proj2_id), "total_floors": 4},
+            # AC Plaza — 1 blok
+            {"name": "Ana Bina", "project_id": str(proj3_id), "total_floors": 12},
         ]
         for b in blocks:
             bid = uuid.uuid4()
@@ -117,167 +112,207 @@ def seed():
                 INSERT INTO blocks (id, project_id, name, total_floors, created_at, updated_at)
                 VALUES (:id, :project_id, :name, :total_floors, now(), now())
             """), {"id": str(bid), **b})
-        print("  ✅ 7 blok eklendi")
+        print(f"  ✅ {len(blocks)} blok eklendi")
 
-        # ── Daireler (Units) ──
+        # ── Daireler ──
         unit_ids = {}
-        unit_data = []
-        # Park Evler A Blok — 5 kat x 4 daire
-        b1_id = block_ids[(str(proj1_id), "A Blok")]
-        statuses_p1 = [
-            # floor 1
-            ("A-1-1", "2+1", 95, 2800000, "sold"), ("A-1-2", "3+1", 130, 3500000, "sold"),
-            ("A-1-3", "2+1", 95, 2800000, "reserved"), ("A-1-4", "1+1", 65, 1900000, "available"),
-            # floor 2
-            ("A-2-1", "2+1", 95, 2900000, "available"), ("A-2-2", "3+1", 130, 3600000, "negotiation"),
-            ("A-2-3", "2+1", 95, 2900000, "sold"), ("A-2-4", "1+1", 65, 1950000, "available"),
-            # floor 3
-            ("A-3-1", "3+1", 130, 3700000, "sold"), ("A-3-2", "3+1", 130, 3700000, "available"),
-            ("A-3-3", "2+1", 95, 3000000, "reserved"), ("A-3-4", "1+1", 65, 2050000, "negotiation"),
-            # floor 4
-            ("A-4-1", "2+1", 95, 3100000, "available"), ("A-4-2", "3+1", 130, 3800000, "available"),
-            ("A-4-3", "2+1", 95, 3100000, "sold"), ("A-4-4", "1+1", 65, 2100000, "available"),
-            # floor 5
-            ("A-5-1", "3+1", 145, 4200000, "available"), ("A-5-2", "4+1", 180, 5500000, "reserved"),
-            ("A-5-3", "3+1", 145, 4200000, "sold"), ("A-5-4", "2+1", 110, 3300000, "available"),
+        unit_count = 0
+
+        # AC Towers A Blok — 4 kat x 3 daire
+        a_blok = block_ids[(str(proj1_id), "A Blok")]
+        towers_a = [
+            # Kat 1
+            (1, "A-101", "2+1", 95, 78, 3200000, "sold", True, False, "Güney"),
+            (1, "A-102", "3+1", 130, 108, 4100000, "sold", True, True, "Güney-Batı"),
+            (1, "A-103", "2+1", 95, 78, 3100000, "available", False, False, "Kuzey"),
+            # Kat 2
+            (2, "A-201", "2+1", 95, 78, 3350000, "reserved", True, False, "Güney"),
+            (2, "A-202", "3+1", 130, 108, 4300000, "negotiation", True, True, "Güney-Batı"),
+            (2, "A-203", "2+1", 95, 78, 3250000, "available", False, False, "Kuzey"),
+            # Kat 3
+            (3, "A-301", "3+1", 140, 115, 4800000, "sold", True, True, "Güney"),
+            (3, "A-302", "4+1", 180, 150, 6200000, "available", True, True, "Güney-Batı"),
+            (3, "A-303", "2+1", 100, 82, 3600000, "available", True, False, "Kuzey"),
+            # Kat 4
+            (4, "A-401", "3+1", 140, 115, 5000000, "reserved", True, True, "Güney"),
+            (4, "A-402", "4+1", 180, 150, 6500000, "negotiation", True, True, "Güney-Batı"),
+            (4, "A-403", "3+1", 140, 115, 4900000, "available", True, True, "Kuzey"),
         ]
-        for i, (unum, rtype, area, price, st) in enumerate(statuses_p1):
+        for fl, unum, rtype, gross, net, price, st, balcony, parking, direction in towers_a:
             uid = uuid.uuid4()
-            floor = int(unum.split("-")[1])
             unit_ids[unum] = uid
             session.execute(text("""
                 INSERT INTO units (id, project_id, block_id, floor_number, unit_number, room_type,
-                    gross_area_m2, net_area_m2, list_price, status, has_balcony, has_parking, created_at, updated_at)
+                    gross_area_m2, net_area_m2, list_price, status, has_balcony, has_parking, direction, created_at, updated_at)
                 VALUES (:id, :project_id, :block_id, :floor_number, :unit_number, :room_type,
-                    :gross_area_m2, :net_area_m2, :list_price, :status, :has_balcony, :has_parking, now(), now())
+                    :gross_area_m2, :net_area_m2, :list_price, :status, :has_balcony, :has_parking, :direction, now(), now())
             """), {
-                "id": str(uid), "project_id": str(proj1_id), "block_id": str(b1_id),
-                "floor_number": floor, "unit_number": unum, "room_type": rtype,
-                "gross_area_m2": area, "net_area_m2": int(area * 0.8),
+                "id": str(uid), "project_id": str(proj1_id), "block_id": str(a_blok),
+                "floor_number": fl, "unit_number": unum, "room_type": rtype,
+                "gross_area_m2": gross, "net_area_m2": net,
                 "list_price": price, "status": st,
-                "has_balcony": floor >= 3, "has_parking": floor >= 4,
+                "has_balcony": balcony, "has_parking": parking, "direction": direction,
             })
+            unit_count += 1
 
-        # Deniz Konakları — 4 daire
-        b3_id = block_ids[(str(proj2_id), "A Blok")]
-        dk_units = [
-            ("DK-1-1", "2+1", 90, 2700000, "sold"), ("DK-1-2", "3+1", 125, 3400000, "available"),
-            ("DK-2-1", "2+1", 90, 2800000, "reserved"), ("DK-2-2", "4+1", 170, 5200000, "negotiation"),
+        # AC Towers B Blok — 3 kat x 2 daire
+        b_blok = block_ids[(str(proj1_id), "B Blok")]
+        towers_b = [
+            (1, "B-101", "1+1", 65, 52, 2100000, "sold", False, False, "Doğu"),
+            (1, "B-102", "2+1", 90, 73, 2900000, "available", True, False, "Batı"),
+            (2, "B-201", "1+1", 65, 52, 2200000, "available", False, False, "Doğu"),
+            (2, "B-202", "2+1", 90, 73, 3000000, "reserved", True, False, "Batı"),
+            (3, "B-301", "2+1", 95, 78, 3200000, "available", True, True, "Doğu"),
+            (3, "B-302", "3+1", 125, 103, 4000000, "available", True, True, "Batı"),
         ]
-        for unum, rtype, area, price, st in dk_units:
+        for fl, unum, rtype, gross, net, price, st, balcony, parking, direction in towers_b:
             uid = uuid.uuid4()
-            floor = int(unum.split("-")[1])
             unit_ids[unum] = uid
             session.execute(text("""
                 INSERT INTO units (id, project_id, block_id, floor_number, unit_number, room_type,
-                    gross_area_m2, net_area_m2, list_price, status, has_balcony, has_parking, created_at, updated_at)
+                    gross_area_m2, net_area_m2, list_price, status, has_balcony, has_parking, direction, created_at, updated_at)
                 VALUES (:id, :project_id, :block_id, :floor_number, :unit_number, :room_type,
-                    :gross_area_m2, :net_area_m2, :list_price, :status, false, false, now(), now())
+                    :gross_area_m2, :net_area_m2, :list_price, :status, :has_balcony, :has_parking, :direction, now(), now())
             """), {
-                "id": str(uid), "project_id": str(proj2_id), "block_id": str(b3_id),
-                "floor_number": floor, "unit_number": unum, "room_type": rtype,
-                "gross_area_m2": area, "net_area_m2": int(area * 0.8),
+                "id": str(uid), "project_id": str(proj1_id), "block_id": str(b_blok),
+                "floor_number": fl, "unit_number": unum, "room_type": rtype,
+                "gross_area_m2": gross, "net_area_m2": net,
                 "list_price": price, "status": st,
+                "has_balcony": balcony, "has_parking": parking, "direction": direction,
             })
+            unit_count += 1
 
-        print(f"  ✅ {len(statuses_p1) + len(dk_units)} daire eklendi")
+        # AC Garden Palmiye Blok — 3 kat x 2 daire
+        palmiye = block_ids[(str(proj2_id), "Palmiye Blok")]
+        garden_p = [
+            (1, "P-101", "2+1", 100, 82, 2800000, "sold", True, True, "Güney"),
+            (1, "P-102", "3+1", 135, 112, 3500000, "available", True, True, "Güney-Batı"),
+            (2, "P-201", "2+1", 100, 82, 2900000, "negotiation", True, True, "Güney"),
+            (2, "P-202", "3+1", 135, 112, 3600000, "available", True, True, "Güney-Batı"),
+            (3, "P-301", "3+1", 145, 120, 4100000, "available", True, True, "Güney"),
+            (3, "P-302", "4+1", 175, 145, 5200000, "reserved", True, True, "Güney-Batı"),
+        ]
+        for fl, unum, rtype, gross, net, price, st, balcony, parking, direction in garden_p:
+            uid = uuid.uuid4()
+            unit_ids[unum] = uid
+            session.execute(text("""
+                INSERT INTO units (id, project_id, block_id, floor_number, unit_number, room_type,
+                    gross_area_m2, net_area_m2, list_price, status, has_balcony, has_parking, direction, created_at, updated_at)
+                VALUES (:id, :project_id, :block_id, :floor_number, :unit_number, :room_type,
+                    :gross_area_m2, :net_area_m2, :list_price, :status, :has_balcony, :has_parking, :direction, now(), now())
+            """), {
+                "id": str(uid), "project_id": str(proj2_id), "block_id": str(palmiye),
+                "floor_number": fl, "unit_number": unum, "room_type": rtype,
+                "gross_area_m2": gross, "net_area_m2": net,
+                "list_price": price, "status": st,
+                "has_balcony": balcony, "has_parking": parking, "direction": direction,
+            })
+            unit_count += 1
+
+        print(f"  ✅ {unit_count} daire eklendi")
 
         # ── Müşteriler ──
         cust_ids = {}
         customers = [
-            {"key": "ahmet", "first_name": "Ahmet", "last_name": "Kaya", "phone": "0532 111 2233",
-             "email": "ahmet.kaya@email.com", "source": "web", "assigned_to": str(user1_id),
-             "notes": "Park Evler projesine ilgili.", "tc_kimlik_no": "12345678901"},
-            {"key": "fatma", "first_name": "Fatma", "last_name": "Demir", "phone": "0533 222 4455",
-             "email": "fatma.demir@email.com", "source": "referral", "assigned_to": str(user2_id),
-             "notes": "3+1 daire arıyor, bütçe 3.5M civarı.", "tc_kimlik_no": None},
-            {"key": "ali", "first_name": "Ali", "last_name": "Şahin", "phone": "0535 333 6677",
-             "email": "ali.sahin@email.com", "source": "walk_in", "assigned_to": str(user1_id),
-             "notes": "Yatırım amaçlı, birden fazla daire alabilir.", "tc_kimlik_no": "98765432109"},
-            {"key": "zeynep", "first_name": "Zeynep", "last_name": "Arslan", "phone": "0536 444 8899",
+            {"key": "kemal", "first_name": "Kemal", "last_name": "Aydın", "phone": "0532 210 4455",
+             "email": "kemal.aydin@email.com", "source": "web", "assigned_to": str(user1_id),
+             "notes": "AC Towers A Blok ile ilgileniyor. Yatırım amaçlı.", "tc_kimlik_no": "10203040506",
+             "address": "Kadıköy, İstanbul"},
+            {"key": "selin", "first_name": "Selin", "last_name": "Korkmaz", "phone": "0533 320 5566",
+             "email": "selin.korkmaz@email.com", "source": "referral", "assigned_to": str(user2_id),
+             "notes": "3+1 daire arıyor, Antalya'ya taşınmayı düşünüyor.", "tc_kimlik_no": None,
+             "address": "Beşiktaş, İstanbul"},
+            {"key": "burak", "first_name": "Burak", "last_name": "Erdoğan", "phone": "0535 430 6677",
+             "email": "burak.erdogan@email.com", "source": "walk_in", "assigned_to": str(user1_id),
+             "notes": "Ailesi için geniş daire bakıyor, 4+1 tercih.", "tc_kimlik_no": "60708090123",
+             "address": None},
+            {"key": "derya", "first_name": "Derya", "last_name": "Çetin", "phone": "0536 540 7788",
              "email": None, "source": "phone", "assigned_to": str(user2_id),
-             "notes": "Deniz Konakları için randevu alındı.", "tc_kimlik_no": None},
-            {"key": "murat", "first_name": "Murat", "last_name": "Özkan", "phone": "0537 555 0011",
-             "email": "murat.ozkan@email.com", "source": "ad", "assigned_to": str(user1_id),
-             "notes": "Instagram reklamdan geldi, 2+1 arıyor.", "tc_kimlik_no": None},
-            {"key": "elif", "first_name": "Elif", "last_name": "Yıldız", "phone": "0538 666 2233",
-             "email": "elif.yildiz@email.com", "source": "web", "assigned_to": str(user2_id),
-             "notes": "Yeşil Vadi projesiyle ilgileniyor.", "tc_kimlik_no": "55566677788"},
+             "notes": "Yazlık ev için AC Garden'a ilgi duyuyor.", "tc_kimlik_no": None,
+             "address": "Çankaya, Ankara"},
+            {"key": "emre", "first_name": "Emre", "last_name": "Özdemir", "phone": "0537 650 8899",
+             "email": "emre.ozdemir@email.com", "source": "ad", "assigned_to": str(user1_id),
+             "notes": "Google reklamdan geldi, küçük daire arıyor.", "tc_kimlik_no": None,
+             "address": None},
         ]
         for c in customers:
             cid = uuid.uuid4()
             cust_ids[c["key"]] = cid
             session.execute(text("""
-                INSERT INTO customers (id, first_name, last_name, phone, email, source, assigned_to, notes, tc_kimlik_no, created_at, updated_at)
-                VALUES (:id, :first_name, :last_name, :phone, :email, :source, :assigned_to, :notes, :tc_kimlik_no, now(), now())
+                INSERT INTO customers (id, first_name, last_name, phone, email, source, assigned_to, notes, tc_kimlik_no, address, created_at, updated_at)
+                VALUES (:id, :first_name, :last_name, :phone, :email, :source, :assigned_to, :notes, :tc_kimlik_no, :address, now(), now())
             """), {"id": str(cid), "first_name": c["first_name"], "last_name": c["last_name"],
                    "phone": c["phone"], "email": c["email"], "source": c["source"],
-                   "assigned_to": c["assigned_to"], "notes": c["notes"], "tc_kimlik_no": c["tc_kimlik_no"]})
-        print("  ✅ 6 müşteri eklendi")
+                   "assigned_to": c["assigned_to"], "notes": c["notes"],
+                   "tc_kimlik_no": c["tc_kimlik_no"], "address": c["address"]})
+        print(f"  ✅ {len(customers)} müşteri eklendi")
 
-        # ── Fırsatlar (Opportunities) ──
+        # ── Fırsatlar ──
         opportunities = [
-            {"customer": "ahmet", "project_id": str(proj1_id), "unit_id": None,
-             "offered_price": 3500000, "status": "proposal_sent", "priority": "high",
-             "expected_close": "2026-05-01", "assigned_to": str(user1_id)},
-            {"customer": "fatma", "project_id": str(proj2_id), "unit_id": None,
-             "offered_price": 2900000, "status": "contacted", "priority": "medium",
-             "expected_close": "2026-05-15", "assigned_to": str(user2_id)},
-            {"customer": "ali", "project_id": str(proj1_id), "unit_id": str(unit_ids.get("A-4-1", uuid.uuid4())),
-             "offered_price": 3000000, "status": "proposal_sent", "priority": "high",
-             "expected_close": "2026-04-20", "assigned_to": str(user1_id)},
-            {"customer": "zeynep", "project_id": str(proj2_id), "unit_id": None,
+            {"customer": "kemal", "project_id": str(proj1_id), "unit_id": str(unit_ids["A-302"]),
+             "offered_price": 6000000, "status": "negotiation", "priority": "high",
+             "expected_close": "2026-05-10", "assigned_to": str(user1_id),
+             "notes": "Fiyat indirimi talep ediyor, 5.8M'ye düşersek anlaşabiliriz."},
+            {"customer": "selin", "project_id": str(proj2_id), "unit_id": str(unit_ids["P-202"]),
+             "offered_price": 3400000, "status": "proposal_sent", "priority": "medium",
+             "expected_close": "2026-06-01", "assigned_to": str(user2_id),
+             "notes": "Teklif gönderildi, hafta sonu saha ziyaretine gelecek."},
+            {"customer": "burak", "project_id": str(proj1_id), "unit_id": str(unit_ids["A-402"]),
+             "offered_price": 6300000, "status": "proposal_sent", "priority": "high",
+             "expected_close": "2026-05-20", "assigned_to": str(user1_id),
+             "notes": "4+1 penthouse istedi, A-402'yi çok beğendi."},
+            {"customer": "derya", "project_id": str(proj2_id), "unit_id": None,
              "offered_price": None, "status": "contacted", "priority": "low",
-             "expected_close": "2026-06-01", "assigned_to": str(user2_id)},
-            {"customer": "ali", "project_id": str(proj2_id), "unit_id": str(unit_ids.get("DK-2-2", uuid.uuid4())),
-             "offered_price": 5200000, "status": "negotiation", "priority": "high",
-             "expected_close": "2026-04-25", "assigned_to": str(user1_id)},
-            {"customer": "murat", "project_id": str(proj1_id), "unit_id": str(unit_ids.get("A-2-1", uuid.uuid4())),
-             "offered_price": 2800000, "status": "new", "priority": "medium",
-             "expected_close": "2026-06-15", "assigned_to": str(user1_id)},
-            {"customer": "elif", "project_id": str(proj3_id), "unit_id": None,
-             "offered_price": None, "status": "new", "priority": "low",
-             "expected_close": "2026-07-01", "assigned_to": str(user2_id)},
-            {"customer": "ahmet", "project_id": str(proj2_id), "unit_id": None,
-             "offered_price": 4100000, "status": "won", "priority": "high",
-             "expected_close": "2026-03-15", "assigned_to": str(user1_id)},
+             "expected_close": "2026-07-01", "assigned_to": str(user2_id),
+             "notes": "İlk telefon görüşmesi yapıldı, henüz daire bakmadı."},
+            {"customer": "emre", "project_id": str(proj1_id), "unit_id": str(unit_ids["B-201"]),
+             "offered_price": 2100000, "status": "new", "priority": "medium",
+             "expected_close": "2026-06-15", "assigned_to": str(user1_id),
+             "notes": None},
+            {"customer": "kemal", "project_id": str(proj1_id), "unit_id": str(unit_ids["A-101"]),
+             "offered_price": 3200000, "status": "won", "priority": "high",
+             "expected_close": "2026-02-01", "assigned_to": str(user1_id),
+             "notes": "Satış tamamlandı."},
         ]
         for o in opportunities:
-            oid = uuid.uuid4()
             session.execute(text("""
-                INSERT INTO opportunities (id, customer_id, project_id, unit_id, offered_price, status, priority, expected_close, assigned_to, created_at, updated_at)
-                VALUES (:id, :customer_id, :project_id, :unit_id, :offered_price, :status, :priority, :expected_close, :assigned_to, now(), now())
+                INSERT INTO opportunities (id, customer_id, project_id, unit_id, offered_price, status, priority, expected_close, assigned_to, notes, created_at, updated_at)
+                VALUES (:id, :customer_id, :project_id, :unit_id, :offered_price, :status, :priority, :expected_close, :assigned_to, :notes, now(), now())
             """), {
-                "id": str(oid), "customer_id": str(cust_ids[o["customer"]]),
+                "id": str(uuid.uuid4()), "customer_id": str(cust_ids[o["customer"]]),
                 "project_id": o["project_id"], "unit_id": o["unit_id"],
                 "offered_price": o["offered_price"], "status": o["status"],
                 "priority": o["priority"], "expected_close": o["expected_close"],
-                "assigned_to": o["assigned_to"],
+                "assigned_to": o["assigned_to"], "notes": o["notes"],
             })
-        print("  ✅ 8 fırsat eklendi")
+        print(f"  ✅ {len(opportunities)} fırsat eklendi")
 
         # ── Aktiviteler ──
         activities = [
-            {"customer": "ali", "user_id": str(user1_id), "type": "meeting",
-             "subject": "Saha ziyareti — Park Evler",
-             "description": "Müşteri ile birlikte A Blok 4. kat gezildi. 2+1 dairelerle ilgilendi.",
-             "date": "2026-04-10T14:30:00+00:00"},
-            {"customer": "fatma", "user_id": str(user2_id), "type": "call",
-             "subject": "Fiyat bilgilendirme",
-             "description": "Deniz Konakları B-5-1 fiyat ve ödeme planı aktarıldı.",
-             "date": "2026-04-10T10:15:00+00:00"},
-            {"customer": "ahmet", "user_id": str(user1_id), "type": "email",
-             "subject": "Teklif gönderildi",
-             "description": "Deniz Konakları A-10-1 için resmi teklif e-posta ile gönderildi.",
-             "date": "2026-04-09T16:00:00+00:00"},
-            {"customer": "zeynep", "user_id": str(user2_id), "type": "call",
+            {"customer": "kemal", "user_id": str(user1_id), "type": "meeting",
+             "subject": "Saha ziyareti — AC Towers A Blok",
+             "description": "Kemal Bey ile A Blok 3. ve 4. kat gezildi. 4+1 penthouse ve 3+1 ile ilgilendi.",
+             "date": "2026-04-15T14:00:00+00:00"},
+            {"customer": "selin", "user_id": str(user2_id), "type": "call",
+             "subject": "Fiyat ve ödeme planı görüşmesi",
+             "description": "AC Garden Palmiye P-202 için fiyat bilgisi ve 24 ay taksit seçeneği aktarıldı.",
+             "date": "2026-04-14T10:30:00+00:00"},
+            {"customer": "burak", "user_id": str(user1_id), "type": "email",
+             "subject": "Teklif gönderildi — A-402",
+             "description": "AC Towers A-402 penthouse için resmi teklif ve ödeme planı e-posta ile gönderildi.",
+             "date": "2026-04-12T16:00:00+00:00"},
+            {"customer": "derya", "user_id": str(user2_id), "type": "call",
              "subject": "İlk iletişim",
-             "description": "Müşteri arandı. Deniz Konakları hakkında bilgi verildi, randevu planlandı.",
-             "date": "2026-04-09T11:30:00+00:00"},
-            {"customer": "ali", "user_id": str(user1_id), "type": "note",
+             "description": "Derya Hanım ile ilk telefon görüşmesi. AC Garden hakkında bilgi verildi.",
+             "date": "2026-04-11T09:15:00+00:00"},
+            {"customer": "kemal", "user_id": str(user1_id), "type": "note",
              "subject": "Müşteri notu",
-             "description": "Müşteri yatırım amaçlı 2-3 daire almayı düşünüyor. Özel indirim talep ediyor.",
-             "date": "2026-04-08T09:00:00+00:00"},
+             "description": "Kemal Bey ciddi alıcı, 2 daire birden alabilir. Toplu alım indirimi sunulabilir.",
+             "date": "2026-04-10T08:30:00+00:00"},
+            {"customer": "emre", "user_id": str(user1_id), "type": "site_visit",
+             "subject": "Saha ziyareti — AC Towers B Blok",
+             "description": "Emre Bey B Blok 1+1 ve 2+1 dairelerini yerinde inceledi.",
+             "date": "2026-04-09T11:00:00+00:00"},
         ]
         for a in activities:
             session.execute(text("""
@@ -289,58 +324,69 @@ def seed():
                 "subject": a["subject"], "description": a["description"],
                 "activity_date": a["date"],
             })
-        print("  ✅ 5 aktivite eklendi")
+        print(f"  ✅ {len(activities)} aktivite eklendi")
 
         # ── Tedarikçiler ──
         sup_ids = {}
         suppliers = [
-            {"key": "abc", "name": "ABC İnşaat Malzemeleri", "contact_person": "Hasan Çelik",
-             "phone": "0532 100 2000", "category": "malzeme"},
-            {"key": "xyz", "name": "XYZ Demir Çelik A.Ş.", "contact_person": "Yusuf Demir",
-             "phone": "0533 200 3000", "category": "malzeme"},
-            {"key": "dogan", "name": "Doğan Taşeronluk", "contact_person": "Eren Doğan",
-             "phone": "0535 300 4000", "category": "taseron"},
-            {"key": "anadolu", "name": "Anadolu Elektrik Ltd.", "contact_person": "Kemal Anadolu",
-             "phone": "0536 400 5000", "category": "taseron"},
-            {"key": "mega", "name": "Mega Boya Kimya", "contact_person": "Selim Mega",
-             "phone": "0537 500 6000", "category": "malzeme"},
+            {"key": "atlas", "name": "Atlas Yapı Malzemeleri A.Ş.", "contact_person": "Hüseyin Kara",
+             "phone": "0212 555 1001", "email": "info@atlasyapi.com", "tax_number": "1234567890",
+             "address": "Bayrampaşa, İstanbul", "category": "malzeme",
+             "notes": "Çimento, tuğla ve beton tedarikçisi."},
+            {"key": "celik", "name": "Güney Çelik San. Ltd.", "contact_person": "Osman Güney",
+             "phone": "0312 444 2002", "email": "satis@guneycelik.com", "tax_number": "9876543210",
+             "address": "OSTİM, Ankara", "category": "malzeme",
+             "notes": "Demir ve çelik donatı tedarikçisi."},
+            {"key": "usta", "name": "Usta Taşeronluk", "contact_person": "Cengiz Usta",
+             "phone": "0535 777 3003", "email": None, "tax_number": None,
+             "address": None, "category": "taseron",
+             "notes": "Kaba inşaat ve betonarme işleri."},
+            {"key": "elektra", "name": "Elektra Tesisat ve Mühendislik", "contact_person": "Deniz Akın",
+             "phone": "0536 888 4004", "email": "deniz@elektratesisat.com", "tax_number": "5566778899",
+             "address": "Ataşehir, İstanbul", "category": "taseron",
+             "notes": "Elektrik ve mekanik tesisat."},
         ]
         for s in suppliers:
             sid = uuid.uuid4()
             sup_ids[s["key"]] = sid
             session.execute(text("""
-                INSERT INTO suppliers (id, name, contact_person, phone, category, created_at, updated_at)
-                VALUES (:id, :name, :contact_person, :phone, :category, now(), now())
+                INSERT INTO suppliers (id, name, contact_person, phone, email, tax_number, address, category, notes, created_at, updated_at)
+                VALUES (:id, :name, :contact_person, :phone, :email, :tax_number, :address, :category, :notes, now(), now())
             """), {"id": str(sid), "name": s["name"], "contact_person": s["contact_person"],
-                   "phone": s["phone"], "category": s["category"]})
-        print("  ✅ 5 tedarikçi eklendi")
+                   "phone": s["phone"], "email": s["email"], "tax_number": s["tax_number"],
+                   "address": s["address"], "category": s["category"], "notes": s["notes"]})
+        print(f"  ✅ {len(suppliers)} tedarikçi eklendi")
 
         # ── Giderler ──
         expenses = [
-            {"supplier": "abc", "project_id": str(proj1_id), "category": "malzeme",
-             "description": "Çimento alımı — 200 ton", "amount": 450000,
-             "due_date": "2026-04-15", "paid_amount": 0, "status": "pending", "invoice_no": "FTR-2026-0401"},
-            {"supplier": "xyz", "project_id": str(proj1_id), "category": "malzeme",
-             "description": "Demir donatı çelik", "amount": 680000,
-             "due_date": "2026-04-20", "paid_amount": 0, "status": "pending", "invoice_no": "FTR-2026-0385"},
-            {"supplier": "dogan", "project_id": str(proj2_id), "category": "iscilik",
-             "description": "Nisan ayı hakedişi — Kaba inşaat", "amount": 320000,
-             "due_date": "2026-04-30", "paid_amount": 0, "status": "pending", "invoice_no": "HAK-2026-04"},
-            {"supplier": "anadolu", "project_id": str(proj1_id), "category": "taseron",
-             "description": "Elektrik tesisatı — A Blok 3-5. katlar", "amount": 85000,
-             "due_date": "2026-03-25", "paid_amount": 85000, "status": "paid", "invoice_no": "FTR-2026-0310"},
-            {"supplier": "abc", "project_id": str(proj2_id), "category": "malzeme",
-             "description": "Tuğla ve yapı malzemesi", "amount": 195000,
-             "due_date": "2026-03-10", "paid_amount": 100000, "status": "partial", "invoice_no": "FTR-2026-0280"},
+            {"supplier": "atlas", "project_id": str(proj1_id), "category": "malzeme",
+             "description": "Çimento alımı — 150 ton", "amount": 380000,
+             "due_date": "2026-04-20", "paid_amount": 0, "status": "pending",
+             "invoice_no": "ATL-2026-0412"},
+            {"supplier": "celik", "project_id": str(proj1_id), "category": "malzeme",
+             "description": "Nervürlü çelik donatı — 80 ton", "amount": 720000,
+             "due_date": "2026-04-25", "paid_amount": 0, "status": "pending",
+             "invoice_no": "GC-2026-0388"},
+            {"supplier": "usta", "project_id": str(proj1_id), "category": "iscilik",
+             "description": "Nisan ayı hakedişi — Kaba inşaat", "amount": 280000,
+             "due_date": "2026-04-30", "paid_amount": 0, "status": "pending",
+             "invoice_no": "UST-HAK-2026-04"},
+            {"supplier": "elektra", "project_id": str(proj1_id), "category": "taseron",
+             "description": "Elektrik tesisatı — A Blok 1-2. kat", "amount": 95000,
+             "due_date": "2026-03-20", "paid_amount": 95000, "status": "paid",
+             "invoice_no": "ELK-2026-0301"},
+            {"supplier": "atlas", "project_id": str(proj2_id), "category": "malzeme",
+             "description": "Tuğla ve yapı kimyasalları", "amount": 165000,
+             "due_date": "2026-03-15", "paid_amount": 80000, "status": "partial",
+             "invoice_no": "ATL-2026-0350"},
             {"supplier": None, "project_id": None, "category": "kira",
-             "description": "Ofis kirası — Nisan 2026", "amount": 45000,
-             "due_date": "2026-04-01", "paid_amount": 45000, "status": "paid", "invoice_no": None},
+             "description": "Şantiye ofis kirası — Nisan 2026", "amount": 35000,
+             "due_date": "2026-04-01", "paid_amount": 35000, "status": "paid",
+             "invoice_no": None},
             {"supplier": None, "project_id": None, "category": "vergi",
-             "description": "KDV ödemesi — Q1 2026", "amount": 230000,
-             "due_date": "2026-04-25", "paid_amount": 0, "status": "pending", "invoice_no": None},
-            {"supplier": "mega", "project_id": str(proj1_id), "category": "malzeme",
-             "description": "İç cephe boya ve astar", "amount": 120000,
-             "due_date": "2026-03-01", "paid_amount": 0, "status": "overdue", "invoice_no": "FTR-2026-0250"},
+             "description": "KDV ödemesi — Q1 2026", "amount": 195000,
+             "due_date": "2026-04-25", "paid_amount": 0, "status": "pending",
+             "invoice_no": None},
         ]
         for e in expenses:
             session.execute(text("""
@@ -357,29 +403,24 @@ def seed():
                 "paid_amount": e["paid_amount"], "status": e["status"],
                 "invoice_no": e["invoice_no"], "created_by": str(user1_id),
             })
-        print("  ✅ 8 gider eklendi")
+        print(f"  ✅ {len(expenses)} gider eklendi")
 
         # ── Satışlar ──
         sale1_id = uuid.uuid4()
         sale2_id = uuid.uuid4()
         sale3_id = uuid.uuid4()
-        sale4_id = uuid.uuid4()
 
         sales_data = [
-            {"id": str(sale1_id), "unit_key": "A-3-1", "customer": "ahmet",
-             "sale_date": "2026-01-20", "sale_price": 3500000, "down_payment": 700000,
-             "remaining_debt": 2800000, "installment_count": 24, "status": "active",
-             "payment_start_date": "2026-02-15"},
-            {"id": str(sale2_id), "unit_key": "DK-1-1", "customer": "fatma",
-             "sale_date": "2025-11-10", "sale_price": 2900000, "down_payment": 580000,
-             "remaining_debt": 2320000, "installment_count": 36, "status": "active",
-             "payment_start_date": "2025-12-15"},
-            {"id": str(sale3_id), "unit_key": "A-4-3", "customer": "ali",
-             "sale_date": "2026-02-05", "sale_price": 3700000, "down_payment": 1850000,
-             "remaining_debt": 1850000, "installment_count": 12, "status": "active",
-             "payment_start_date": "2026-03-05"},
-            {"id": str(sale4_id), "unit_key": "A-1-1", "customer": "elif",
-             "sale_date": "2025-05-20", "sale_price": 1800000, "down_payment": 1800000,
+            {"id": str(sale1_id), "unit_key": "A-101", "customer": "kemal",
+             "sale_date": "2026-02-01", "sale_price": 3200000, "down_payment": 640000,
+             "remaining_debt": 2560000, "installment_count": 24, "status": "active",
+             "payment_start_date": "2026-03-01"},
+            {"id": str(sale2_id), "unit_key": "A-301", "customer": "burak",
+             "sale_date": "2026-03-10", "sale_price": 4800000, "down_payment": 2400000,
+             "remaining_debt": 2400000, "installment_count": 12, "status": "active",
+             "payment_start_date": "2026-04-10"},
+            {"id": str(sale3_id), "unit_key": "P-101", "customer": "selin",
+             "sale_date": "2026-01-20", "sale_price": 2800000, "down_payment": 2800000,
              "remaining_debt": 0, "installment_count": 0, "status": "completed",
              "payment_start_date": None},
         ]
@@ -399,78 +440,57 @@ def seed():
                 "payment_start_date": s["payment_start_date"],
                 "status": s["status"], "created_by": str(user1_id),
             })
-        print("  ✅ 4 satış eklendi")
+        print(f"  ✅ {len(sales_data)} satış eklendi")
 
         # ── Taksitler ──
-        # Sale 1 — Ahmet Kaya — 6 taksit göster
-        installments_s1 = [
-            {"no": 1, "due_date": "2026-02-15", "amount": 116667, "paid_amount": 116667, "status": "paid"},
-            {"no": 2, "due_date": "2026-03-15", "amount": 116667, "paid_amount": 116667, "status": "paid"},
-            {"no": 3, "due_date": "2026-04-15", "amount": 116667, "paid_amount": 45000, "status": "partial"},
-            {"no": 4, "due_date": "2026-05-15", "amount": 116667, "paid_amount": 0, "status": "pending"},
-            {"no": 5, "due_date": "2026-06-15", "amount": 116667, "paid_amount": 0, "status": "pending"},
-            {"no": 6, "due_date": "2026-07-15", "amount": 116667, "paid_amount": 0, "status": "pending"},
-        ]
-        inst_ids = {}
-        for inst in installments_s1:
+        # Sale 1 — Kemal Aydın — 24 taksit, ilk 2 ödendi
+        monthly = round(2560000 / 24)
+        for i in range(1, 7):  # İlk 6 taksiti göster
             iid = uuid.uuid4()
-            inst_ids[(str(sale1_id), inst["no"])] = iid
+            due = f"2026-{2 + i:02d}-01"
+            if i <= 2:
+                pa, st = monthly, "paid"
+            elif i == 3:
+                pa, st = 40000, "partial"
+            else:
+                pa, st = 0, "pending"
             session.execute(text("""
                 INSERT INTO installments (id, sale_id, installment_no, due_date, amount, paid_amount, status, created_at, updated_at)
                 VALUES (:id, :sale_id, :installment_no, :due_date, :amount, :paid_amount, :status, now(), now())
-            """), {"id": str(iid), "sale_id": str(sale1_id), "installment_no": inst["no"],
-                   "due_date": inst["due_date"], "amount": inst["amount"],
-                   "paid_amount": inst["paid_amount"], "status": inst["status"]})
+            """), {"id": str(iid), "sale_id": str(sale1_id), "installment_no": i,
+                   "due_date": due, "amount": monthly, "paid_amount": pa, "status": st})
 
-        # Sale 2 — Fatma Demir — 5 taksit
-        installments_s2 = [
-            {"no": 1, "due_date": "2025-12-15", "amount": 64444, "paid_amount": 64444, "status": "paid"},
-            {"no": 2, "due_date": "2026-01-15", "amount": 64444, "paid_amount": 64444, "status": "paid"},
-            {"no": 3, "due_date": "2026-02-15", "amount": 64444, "paid_amount": 64444, "status": "paid"},
-            {"no": 4, "due_date": "2026-03-01", "amount": 64444, "paid_amount": 0, "status": "overdue"},
-            {"no": 5, "due_date": "2026-04-15", "amount": 64444, "paid_amount": 0, "status": "pending"},
-        ]
-        for inst in installments_s2:
+        # Sale 2 — Burak Erdoğan — 12 taksit, ilki gecikmiş
+        monthly2 = round(2400000 / 12)
+        for i in range(1, 5):  # İlk 4 taksiti göster
             iid = uuid.uuid4()
+            due = f"2026-{3 + i:02d}-10"
+            if i == 1:
+                pa, st = 0, "overdue"
+            else:
+                pa, st = 0, "pending"
             session.execute(text("""
                 INSERT INTO installments (id, sale_id, installment_no, due_date, amount, paid_amount, status, created_at, updated_at)
                 VALUES (:id, :sale_id, :installment_no, :due_date, :amount, :paid_amount, :status, now(), now())
-            """), {"id": str(iid), "sale_id": str(sale2_id), "installment_no": inst["no"],
-                   "due_date": inst["due_date"], "amount": inst["amount"],
-                   "paid_amount": inst["paid_amount"], "status": inst["status"]})
+            """), {"id": str(iid), "sale_id": str(sale2_id), "installment_no": i,
+                   "due_date": due, "amount": monthly2, "paid_amount": pa, "status": st})
 
-        # Sale 3 — Ali Şahin — 3 taksit
-        installments_s3 = [
-            {"no": 1, "due_date": "2026-03-05", "amount": 154167, "paid_amount": 0, "status": "overdue"},
-            {"no": 2, "due_date": "2026-04-05", "amount": 154167, "paid_amount": 0, "status": "pending"},
-            {"no": 3, "due_date": "2026-05-05", "amount": 154167, "paid_amount": 0, "status": "pending"},
-        ]
-        for inst in installments_s3:
-            iid = uuid.uuid4()
-            session.execute(text("""
-                INSERT INTO installments (id, sale_id, installment_no, due_date, amount, paid_amount, status, created_at, updated_at)
-                VALUES (:id, :sale_id, :installment_no, :due_date, :amount, :paid_amount, :status, now(), now())
-            """), {"id": str(iid), "sale_id": str(sale3_id), "installment_no": inst["no"],
-                   "due_date": inst["due_date"], "amount": inst["amount"],
-                   "paid_amount": inst["paid_amount"], "status": inst["status"]})
-        print(f"  ✅ {len(installments_s1) + len(installments_s2) + len(installments_s3)} taksit eklendi")
+        print("  ✅ 10 taksit eklendi")
 
         # ── Ödemeler ──
         payments = [
-            # Sale 1 — Ahmet
-            {"sale_id": str(sale1_id), "amount": 700000, "date": "2026-01-20", "method": "bank_transfer", "ref": "HAV-001"},
-            {"sale_id": str(sale1_id), "amount": 116667, "date": "2026-02-15", "method": "bank_transfer", "ref": "HAV-002"},
-            {"sale_id": str(sale1_id), "amount": 116667, "date": "2026-03-15", "method": "cash", "ref": "NAK-001"},
-            {"sale_id": str(sale1_id), "amount": 45000, "date": "2026-04-05", "method": "bank_transfer", "ref": "HAV-003"},
-            # Sale 2 — Fatma
-            {"sale_id": str(sale2_id), "amount": 580000, "date": "2025-11-10", "method": "bank_transfer", "ref": "HAV-010"},
-            {"sale_id": str(sale2_id), "amount": 64444, "date": "2025-12-15", "method": "bank_transfer", "ref": "HAV-011"},
-            {"sale_id": str(sale2_id), "amount": 64444, "date": "2026-01-16", "method": "cash", "ref": "NAK-004"},
-            {"sale_id": str(sale2_id), "amount": 64444, "date": "2026-02-15", "method": "credit_card", "ref": "KK-001"},
-            # Sale 3 — Ali
-            {"sale_id": str(sale3_id), "amount": 1850000, "date": "2026-02-05", "method": "bank_transfer", "ref": "HAV-020"},
-            # Sale 4 — Elif (peşin)
-            {"sale_id": str(sale4_id), "amount": 1800000, "date": "2025-05-20", "method": "bank_transfer", "ref": "HAV-050"},
+            # Kemal — peşinat
+            {"sale_id": str(sale1_id), "amount": 640000, "date": "2026-02-01", "method": "bank_transfer", "ref": "HAV-2026-001"},
+            # Kemal — 1. taksit
+            {"sale_id": str(sale1_id), "amount": monthly, "date": "2026-03-01", "method": "bank_transfer", "ref": "HAV-2026-002"},
+            # Kemal — 2. taksit
+            {"sale_id": str(sale1_id), "amount": monthly, "date": "2026-04-01", "method": "bank_transfer", "ref": "HAV-2026-003"},
+            # Kemal — 3. taksit kısmi
+            {"sale_id": str(sale1_id), "amount": 40000, "date": "2026-04-15", "method": "cash", "ref": "NAK-2026-001"},
+            # Burak — peşinat
+            {"sale_id": str(sale2_id), "amount": 2400000, "date": "2026-03-10", "method": "bank_transfer", "ref": "HAV-2026-010"},
+            # Selin — peşin ödeme
+            {"sale_id": str(sale3_id), "amount": 2800000, "date": "2026-01-20", "method": "bank_transfer", "ref": "HAV-2026-020"},
         ]
         for p in payments:
             session.execute(text("""
